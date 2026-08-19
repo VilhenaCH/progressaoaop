@@ -642,7 +642,7 @@
       renderCharGrid();
       renderEconomy();
       populateCharSelects();
-    });
+    }, (err) => toast('Erro ao carregar personagens: ' + err.message, true));
   }
 
   function activeCharCount(){
@@ -826,11 +826,12 @@
   });
 
   function subscribeMyRequests(uid){
-    const q = query(collection(db, 'redemptions'), where('uid', '==', uid), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'redemptions'), where('uid', '==', uid));
     unsubRequests = onSnapshot(q, (snap) => {
       myRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      myRequests.sort((a,b) => (b.createdAt?.toMillis?.()||0) - (a.createdAt?.toMillis?.()||0));
       renderMyRequests();
-    });
+    }, (err) => toast('Erro ao carregar solicitações: ' + err.message, true));
   }
 
   function reqLabel(type){
@@ -875,10 +876,12 @@
 
   // ================= STAFF =================
   function subscribePendingRequests(){
-    const q = query(collection(db, 'redemptions'), where('status', '==', 'pendente'), orderBy('createdAt', 'asc'));
+    const q = query(collection(db, 'redemptions'), where('status', '==', 'pendente'));
     unsubPending = onSnapshot(q, (snap) => {
-      renderStaffPending(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      list.sort((a,b) => (a.createdAt?.toMillis?.()||0) - (b.createdAt?.toMillis?.()||0));
+      renderStaffPending(list);
+    }, (err) => toast('Erro ao carregar solicitações pendentes: ' + err.message, true));
   }
 
   function renderStaffPending(list){
@@ -967,7 +970,7 @@
       const players = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderStaffPlayerSelects(players);
       renderStaffPlayersTable(players);
-    });
+    }, (err) => toast('Erro ao carregar jogadores: ' + err.message, true));
   }
 
   function renderStaffPlayerSelects(players){
@@ -1018,12 +1021,76 @@
   function renderStaffPlayersTable(players){
     const el = document.getElementById('staff-players-table');
     if(players.length === 0){ el.innerHTML = '<div class="empty-hint">Nenhum jogador cadastrado ainda.</div>'; return; }
-    let html = '<table><thead><tr><th>Jogador</th><th>PP total</th></tr></thead><tbody>';
+    el.innerHTML = '';
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>Jogador</th><th>PP total</th></tr></thead>';
+    const tbody = document.createElement('tbody');
     players.forEach(p => {
-      html += `<tr><td>${escapeHtml(p.displayName||p.email||p.id)}</td><td>${p.ppTotal||0}</td></tr>`;
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.innerHTML = `<td>${escapeHtml(p.displayName||p.email||p.id)}</td><td>${p.ppTotal||0}</td>`;
+      tr.addEventListener('click', () => openStaffPlayerDetail(p));
+      tbody.appendChild(tr);
     });
-    html += '</tbody></table>';
-    el.innerHTML = html;
+    table.appendChild(tbody);
+    el.appendChild(table);
+    const hint = document.createElement('div');
+    hint.className = 'field-hint';
+    hint.style.marginTop = '0.6rem';
+    hint.textContent = 'Clique em um jogador para ver os personagens dele.';
+    el.appendChild(hint);
+  }
+
+  async function openStaffPlayerDetail(player){
+    document.getElementById('detail-name').textContent = player.displayName || player.email || player.id;
+    const body = document.getElementById('detail-body');
+    body.innerHTML = '<div class="empty-hint">Carregando personagens...</div>';
+    openDrawer('detail-drawer');
+
+    const snap = await getDocs(collection(db, 'players', player.id, 'characters'));
+    const chars = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    body.innerHTML = `<div class="stat-grid"><div class="stat-box"><div class="label">Prestígio total (PP)</div><div class="value">${player.ppTotal||0}</div></div></div>`;
+
+    if(chars.length === 0){
+      body.innerHTML += '<div class="empty-hint" style="margin-top:0.9rem;">Este jogador ainda não cadastrou personagens.</div>';
+      return;
+    }
+
+    const listWrap = document.createElement('div');
+    listWrap.style.marginTop = '1rem';
+    chars.forEach(c => {
+      const info = nextLevelInfo(c.peTotal || 0);
+      const pat = patenteAtual(c.patente || 'recruta');
+      const card = document.createElement('div');
+      card.className = 'req-card';
+      card.innerHTML = `
+        <div class="req-top">
+          <div>
+            <div class="req-type">${escapeHtml(c.name)}</div>
+            <div class="req-char">${pat.label} — Nível ${info.level}${c.seasonMaxed ? ' — Evolução Máxima' : ''}${c.isActive===false ? ' — Inativo' : ''}</div>
+          </div>
+        </div>
+        <div class="req-amounts">PE total: ${c.peTotal||0} &nbsp; Sessões: ${c.sessionsCount||0}</div>
+        <div class="req-note">Conversões PP→PE usadas: ${c.ppConversionsUsed||0} / ${c.sessionsCount||0} · PE de narração aplicados: ${c.gmPeApplied||0} / ${c.sessionsCount||0}</div>
+      `;
+      const btn = document.createElement('button');
+      btn.className = 'btn small primary';
+      btn.style.marginTop = '0.6rem';
+      btn.textContent = 'Usar no painel de concessão';
+      btn.addEventListener('click', () => {
+        closeDrawer('detail-drawer');
+        switchView('staff');
+        const playerSel = document.getElementById('grant-player-select');
+        playerSel.value = player.id;
+        loadCharsForGrant(player.id).then(() => {
+          document.getElementById('grant-char-select').value = c.id;
+        });
+      });
+      card.appendChild(btn);
+      listWrap.appendChild(card);
+    });
+    body.appendChild(listWrap);
   }
 
   // ================= SESSION COUNT (staff também pode registrar sessão jogada) =================
