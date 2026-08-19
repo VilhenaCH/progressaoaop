@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1118,7 +1117,11 @@
       hint.textContent = '';
     } else {
       fields.innerHTML = `<label>PE solicitado</label><input type="number" id="req-pe-amount" min="0" value="0">
-        <label>PP solicitado</label><input type="number" id="req-pp-amount2" min="0" value="0">`;
+        <label>PP solicitado</label><input type="number" id="req-pp-amount2" min="0" value="0">
+        <div class="checkbox-row">
+          <input type="checkbox" id="req-counts-session">
+          <label style="margin:0;" for="req-counts-session">Foi de uma sessão jogada (libera +1 conversão PP→PE e +1 PE de narração ao ser aprovado)</label>
+        </div>`;
       hint.textContent = 'Use para registrar resgate de recompensa de sessão, aposta, etc.';
     }
   }
@@ -1152,7 +1155,8 @@
     } else {
       const pe = parseInt(document.getElementById('req-pe-amount').value || '0', 10);
       const pp = parseInt(document.getElementById('req-pp-amount2').value || '0', 10);
-      payload.peAmount = pe; payload.ppAmount = pp;
+      const countsSession = document.getElementById('req-counts-session').checked;
+      payload.peAmount = pe; payload.ppAmount = pp; payload.countsSession = countsSession;
     }
 
     await addDoc(collection(db, 'redemptions'), payload);
@@ -1188,7 +1192,7 @@
           </div>
           <span class="status-badge status-${r.status}">${r.status}</span>
         </div>
-        <div class="req-amounts">${r.peAmount ? r.peAmount + ' PE &nbsp;' : ''}${r.ppAmount ? r.ppAmount + ' PP' : ''}${r.patenteLabel ? ' — ' + r.patenteLabel : ''}</div>
+        <div class="req-amounts">${r.peAmount ? r.peAmount + ' PE &nbsp;' : ''}${r.ppAmount ? r.ppAmount + ' PP' : ''}${r.patenteLabel ? ' — ' + r.patenteLabel : ''}${r.countsSession ? ' <span class="alt-badge" style="color:var(--safe); border-color:#3a5a3f;">Sessão jogada</span>' : ''}</div>
         ${r.note ? `<div class="req-note">${escapeHtml(r.note)}</div>` : ''}
         ${r.staffNote ? `<div class="req-note">Staff: ${escapeHtml(r.staffNote)}</div>` : ''}
       `;
@@ -1234,7 +1238,7 @@
           </div>
           <span class="status-badge status-${r.status}">${r.status}</span>
         </div>
-        <div class="req-amounts">${r.peAmount ? r.peAmount + ' PE &nbsp;' : ''}${r.ppAmount ? r.ppAmount + ' PP' : ''}${r.patenteLabel ? ' — ' + r.patenteLabel : ''}</div>
+        <div class="req-amounts">${r.peAmount ? r.peAmount + ' PE &nbsp;' : ''}${r.ppAmount ? r.ppAmount + ' PP' : ''}${r.patenteLabel ? ' — ' + r.patenteLabel : ''}${r.countsSession ? ' <span class="alt-badge" style="color:var(--safe); border-color:#3a5a3f;">Sessão jogada</span>' : ''}</div>
         ${r.note ? `<div class="req-note">${escapeHtml(r.note)}</div>` : ''}
       `;
       const actions = document.createElement('div');
@@ -1288,6 +1292,7 @@
         } else {
           if(r.peAmount) charUpdates.peTotal = increment(r.peAmount);
           if(r.ppAmount) playerUpdates.ppTotal = increment(r.ppAmount);
+          if(r.countsSession) charUpdates.sessionsCount = increment(1);
         }
 
         if(Object.keys(playerUpdates).length) tx.update(playerRef, playerUpdates);
