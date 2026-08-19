@@ -359,24 +359,25 @@
       <div id="staff-pending-list"></div>
     </div>
     <div class="panel">
-      <div class="section-label">Conceder PE / PP manualmente</div>
-      <h2>Aplicar concessão</h2>
+      <div class="section-label">Conceder ou remover PE / PP manualmente</div>
+      <h2>Aplicar ajuste</h2>
       <label>Jogador</label>
       <select id="grant-player-select"></select>
       <label>Personagem</label>
       <select id="grant-char-select"></select>
       <label>Pontos de Evolução (PE)</label>
-      <input type="number" id="grant-pe" value="0" min="0">
+      <input type="number" id="grant-pe" value="0">
       <label>Pontos de Prestígio (PP)</label>
-      <input type="number" id="grant-pp" value="0" min="0">
+      <input type="number" id="grant-pp" value="0">
+      <div class="field-hint">Use valores negativos para remover PE ou PP (ex: -50). Os totais nunca ficam abaixo de zero.</div>
       <label>Motivo</label>
-      <textarea id="grant-reason" placeholder="Ex: sessão de 19/08, recompensa especial, aposta..."></textarea>
+      <textarea id="grant-reason" placeholder="Ex: sessão de 19/08, recompensa especial, aposta, correção..."></textarea>
       <div class="checkbox-row">
         <input type="checkbox" id="grant-counts-session">
         <label style="margin:0;" for="grant-counts-session">Contar como sessão jogada (destrava +1 conversão PP→PE e +1 PE de narração)</label>
       </div>
       <div class="form-actions">
-        <button class="btn primary" id="grant-submit-btn">Conceder</button>
+        <button class="btn primary" id="grant-submit-btn">Aplicar</button>
       </div>
     </div>
     <div class="panel">
@@ -498,6 +499,9 @@
     getFirestore, doc, setDoc, getDoc, updateDoc, addDoc, collection, query, where,
     onSnapshot, serverTimestamp, deleteDoc, orderBy, runTransaction, increment, getDocs
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   // ================= CONFIG =================
   const firebaseConfig = {
@@ -535,6 +539,7 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  const storage = getStorage(app);
   const provider = new GoogleAuthProvider();
 
   // ================= HELPERS =================
@@ -829,9 +834,11 @@
       <div class="section-label" style="margin-top:1.3rem;">Perfil do personagem</div>
       <label>Nome do personagem</label>
       <input type="text" id="detail-edit-name" value="${escapeHtml(c.name||'')}">
-      <label>Foto (link de imagem)</label>
-      <input type="text" id="detail-edit-photo" placeholder="https://..." value="${escapeHtml(c.photoURL||'')}">
-      <div class="field-hint">Cole o link de uma imagem (Discord, Imgur, etc.). Deixe em branco para usar a inicial do nome.</div>
+      <label>Foto do personagem</label>
+      <input type="file" id="detail-edit-photo-file" accept="image/*">
+      <div class="field-hint" id="detail-photo-upload-hint">Envie uma imagem (JPG, PNG, etc.). Ela substitui a foto atual.</div>
+      <input type="text" id="detail-edit-photo" placeholder="https://..." value="${escapeHtml(c.photoURL||'')}" style="margin-top:0.5rem;">
+      <div class="field-hint">Ou cole o link de uma imagem. Deixe tudo em branco para usar a inicial do nome.</div>
       <label>Anotações</label>
       <textarea id="detail-edit-notes" placeholder="Anotações sobre o personagem, ganchos de história, aparência, etc.">${escapeHtml(c.notes||'')}</textarea>
       <div class="checkbox-row">
@@ -845,6 +852,10 @@
       <div class="form-actions">
         <button class="btn primary" id="detail-save-profile-btn">Salvar perfil</button>
       </div>
+      <div class="section-label" style="margin-top:1.4rem;">Zona de risco</div>
+      <div class="form-actions">
+        <button class="btn danger" id="detail-delete-char-btn">Excluir personagem</button>
+      </div>
     `;
     document.getElementById('detail-active-toggle').addEventListener('change', async (e) => {
       await updateDoc(doc(db, 'players', currentUser.uid, 'characters', c.id), { isActive: e.target.checked });
@@ -854,6 +865,25 @@
       const url = e.target.value.trim();
       if(url){ preview.style.backgroundImage = `url('${url.replace(/'/g,"%27")}')`; preview.textContent = ''; }
       else { preview.style.backgroundImage = 'none'; preview.textContent = (document.getElementById('detail-edit-name').value||'?').slice(0,1).toUpperCase(); }
+    });
+    document.getElementById('detail-edit-photo-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const hint = document.getElementById('detail-photo-upload-hint');
+      hint.textContent = 'Enviando imagem...';
+      try{
+        const path = `character-photos/${currentUser.uid}/${c.id}/${Date.now()}_${file.name}`;
+        const sref = storageRef(storage, path);
+        await uploadBytes(sref, file);
+        const url = await getDownloadURL(sref);
+        const photoInput = document.getElementById('detail-edit-photo');
+        photoInput.value = url;
+        photoInput.dispatchEvent(new Event('input'));
+        hint.textContent = 'Imagem enviada. Clique em "Salvar perfil" para confirmar.';
+      }catch(err){
+        hint.textContent = 'Erro ao enviar imagem: ' + err.message;
+        toast('Erro ao enviar imagem: ' + err.message, true);
+      }
     });
     document.getElementById('detail-edit-isalt').addEventListener('change', (e) => {
       document.getElementById('detail-edit-altof-wrap').style.display = e.target.checked ? '' : 'none';
@@ -869,6 +899,14 @@
         await updateDoc(doc(db, 'players', currentUser.uid, 'characters', c.id), { name, photoURL, notes, isAlt, altOf });
         document.getElementById('detail-name').textContent = name;
         toast('Perfil do personagem salvo.');
+      }catch(e){ toast('Erro: ' + e.message, true); }
+    });
+    document.getElementById('detail-delete-char-btn').addEventListener('click', async () => {
+      if(!confirm(`Tem certeza que deseja excluir "${c.name}"? Essa ação não pode ser desfeita.`)) return;
+      try{
+        await deleteDoc(doc(db, 'players', currentUser.uid, 'characters', c.id));
+        closeDrawer('detail-drawer');
+        toast('Personagem excluído.');
       }catch(e){ toast('Erro: ' + e.message, true); }
     });
     openDrawer('detail-drawer');
@@ -1142,17 +1180,31 @@
     const pe = parseInt(document.getElementById('grant-pe').value || '0', 10);
     const pp = parseInt(document.getElementById('grant-pp').value || '0', 10);
     const reason = document.getElementById('grant-reason').value.trim();
-    if(!playerUid || (!pe && !pp)){ toast('Informe PE e/ou PP para conceder.', true); return; }
+    if(!playerUid || (!pe && !pp)){ toast('Informe PE e/ou PP para conceder ou remover.', true); return; }
 
     const countsSession = document.getElementById('grant-counts-session').checked;
     try{
-      if(pp) await updateDoc(doc(db, 'players', playerUid), { ppTotal: increment(pp) });
-      if(charId && (pe || countsSession)){
-        const charUpdates = {};
-        if(pe) charUpdates.peTotal = increment(pe);
-        if(countsSession) charUpdates.sessionsCount = increment(1);
-        await updateDoc(doc(db, 'players', playerUid, 'characters', charId), charUpdates);
-      }
+      await runTransaction(db, async (tx) => {
+        const playerRef = doc(db, 'players', playerUid);
+        const charRef = charId ? doc(db, 'players', playerUid, 'characters', charId) : null;
+
+        const playerSnap = await tx.get(playerRef);
+        const charSnap = charRef ? await tx.get(charRef) : null;
+
+        if(pp){
+          const newPp = Math.max(0, (playerSnap.data().ppTotal||0) + pp);
+          tx.update(playerRef, { ppTotal: newPp });
+        }
+        if(charRef && (pe || countsSession)){
+          const charUpdates = {};
+          if(pe){
+            const newPe = Math.max(0, (charSnap.data().peTotal||0) + pe);
+            charUpdates.peTotal = newPe;
+          }
+          if(countsSession) charUpdates.sessionsCount = increment(1);
+          tx.update(charRef, charUpdates);
+        }
+      });
       await addDoc(collection(db, 'grants'), {
         uid: playerUid, charId: charId||null, peAmount: pe, ppAmount: pp, reason, countsSession,
         grantedBy: currentUser.uid, grantedAt: serverTimestamp()
@@ -1161,7 +1213,7 @@
       document.getElementById('grant-pp').value = 0;
       document.getElementById('grant-reason').value = '';
       document.getElementById('grant-counts-session').checked = false;
-      toast('Concessão aplicada.');
+      toast('Ajuste aplicado.');
     }catch(e){ toast('Erro: ' + e.message, true); }
   });
 
@@ -1290,6 +1342,10 @@
       <div class="form-actions">
         <button class="btn small primary" id="staff-grant-from-profile-btn">Usar no painel de concessão</button>
       </div>
+      <div class="section-label" style="margin-top:1.4rem;">Zona de risco</div>
+      <div class="form-actions">
+        <button class="btn small danger" id="staff-delete-char-btn">Excluir personagem</button>
+      </div>
     `;
     document.getElementById('staff-grant-from-profile-btn').addEventListener('click', () => {
       closeDrawer('char-profile-drawer');
@@ -1299,6 +1355,14 @@
       loadCharsForGrant(player.id).then(() => {
         document.getElementById('grant-char-select').value = c.id;
       });
+    });
+    document.getElementById('staff-delete-char-btn').addEventListener('click', async () => {
+      if(!confirm(`Excluir "${c.name}" (jogador: ${player.displayName||player.email||player.id})? Essa ação não pode ser desfeita.`)) return;
+      try{
+        await deleteDoc(doc(db, 'players', player.id, 'characters', c.id));
+        closeDrawer('char-profile-drawer');
+        toast('Personagem excluído pela staff.');
+      }catch(e){ toast('Erro: ' + e.message, true); }
     });
     closeDrawer('detail-drawer');
     openDrawer('char-profile-drawer');
