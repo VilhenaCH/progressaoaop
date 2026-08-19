@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -169,6 +170,25 @@
   .progress-bar > div{ height:100%; background:var(--frost); border-radius:var(--r-pill); transition:width .3s var(--ease-soft); }
   .char-card .pe-line{ font-size:0.68rem; color:var(--ink-dim); }
   .char-card .inactive-badge{ position:absolute; top:0.8rem; right:0.8rem; font-size:0.55rem; color:var(--ink-dim); text-transform:uppercase; border:1px solid var(--line); border-radius:var(--r-pill); padding:0.1rem 0.5rem; }
+  .char-card-top{ display:flex; gap:0.7rem; align-items:flex-start; }
+  .char-card-top .char-card-main{ flex:1; min-width:0; }
+  .char-avatar{
+    width:44px; height:44px; border-radius:50%; background:var(--bg-2) center/cover no-repeat;
+    border:1px solid var(--ice-500); flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Oswald',sans-serif; color:var(--frost); font-size:1rem;
+  }
+  .alt-badge{
+    font-size:0.55rem; color:var(--warn); border:1px solid #7a6a3a; border-radius:var(--r-pill);
+    padding:0.08rem 0.5rem; text-transform:uppercase; letter-spacing:0.08em; display:inline-block; margin-left:0.4rem;
+  }
+  .char-avatar-lg{
+    width:84px; height:84px; border-radius:50%; background:var(--bg-2) center/cover no-repeat;
+    border:2px solid var(--ice-500); display:flex; align-items:center; justify-content:center;
+    font-family:'Oswald',sans-serif; color:var(--frost); font-size:1.8rem; margin:0 auto 0.7rem;
+  }
+  .profile-card{ background:var(--bg-1); border:1px solid var(--line); border-radius:var(--r-md); padding:0.9rem 1rem; margin-top:0.8rem; }
+  .profile-card .bio-text{ font-size:0.78rem; color:var(--ink); line-height:1.6; white-space:pre-wrap; }
+  .profile-card .bio-empty{ color:var(--ink-dim); font-style:italic; }
 
   .add-char-card{
     border:1px dashed var(--line); border-radius:var(--r-md); display:flex; align-items:center; justify-content:center;
@@ -294,6 +314,14 @@
 
   <!-- PERSONAGENS -->
   <section class="view" id="view-personagens">
+    <div class="panel">
+      <div class="section-label">Sua apresentação</div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.8rem; flex-wrap:wrap;">
+        <h2 style="margin:0;">Como a mesa te conhece</h2>
+        <button class="btn small" id="edit-profile-btn">Editar apresentação</button>
+      </div>
+      <div class="profile-card" id="my-bio-box"></div>
+    </div>
     <div class="panel">
       <div class="section-label">Seus personagens</div>
       <div id="char-grid" class="char-grid"></div>
@@ -424,6 +452,39 @@
       <button class="btn primary" id="submit-req-btn">Enviar solicitação</button>
     </div>
   </div>
+</div>
+
+<!-- drawer: apresentação do jogador -->
+<div class="backdrop" id="profile-drawer-backdrop"></div>
+<div class="drawer" id="profile-drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="eyebrow">Ficha de jogador</div>
+      <h2>Sua apresentação</h2>
+    </div>
+    <button class="drawer-close" data-close="profile-drawer">✕</button>
+  </div>
+  <div class="drawer-body">
+    <label>Texto de apresentação</label>
+    <textarea id="my-bio-input" placeholder="Fale um pouco sobre você como jogador: estilo de jogo, disponibilidade, o que gosta de interpretar, etc." style="min-height:140px;"></textarea>
+    <div class="field-hint">Esse texto é visível para a staff e ajuda a te conhecer melhor como jogador.</div>
+    <div class="form-actions">
+      <button class="btn primary" id="save-profile-btn">Salvar apresentação</button>
+    </div>
+  </div>
+</div>
+
+<!-- drawer: perfil do personagem (staff, somente visualização) -->
+<div class="backdrop" id="char-profile-drawer-backdrop"></div>
+<div class="drawer" id="char-profile-drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="eyebrow">Perfil de personagem</div>
+      <h2 id="char-profile-name">—</h2>
+    </div>
+    <button class="drawer-close" data-close="char-profile-drawer">✕</button>
+  </div>
+  <div class="drawer-body" id="char-profile-body"></div>
 </div>
 
 <div id="toast"></div>
@@ -598,13 +659,45 @@
     name.className = 'name';
     name.textContent = user.displayName || user.email || 'Agente';
     chip.appendChild(av); chip.appendChild(name);
+    const profileBtn = document.createElement('button');
+    profileBtn.className = 'btn small';
+    profileBtn.textContent = 'Perfil';
+    profileBtn.addEventListener('click', openMyProfileDrawer);
     const logoutBtn = document.createElement('button');
     logoutBtn.className = 'btn small';
     logoutBtn.textContent = 'Sair';
     logoutBtn.addEventListener('click', () => signOut(auth));
     box.appendChild(chip);
+    box.appendChild(profileBtn);
     box.appendChild(logoutBtn);
   }
+
+  // ================= PERFIL DO JOGADOR (apresentação) =================
+  function renderMyBio(){
+    const box = document.getElementById('my-bio-box');
+    if(!box) return;
+    const bio = (myPlayerDoc && myPlayerDoc.bio) ? myPlayerDoc.bio.trim() : '';
+    box.innerHTML = bio
+      ? `<div class="bio-text">${escapeHtml(bio)}</div>`
+      : `<div class="bio-text bio-empty">Você ainda não escreveu sua apresentação. Clique em "Editar apresentação" para contar um pouco sobre você.</div>`;
+  }
+
+  function openMyProfileDrawer(){
+    document.getElementById('my-bio-input').value = (myPlayerDoc && myPlayerDoc.bio) ? myPlayerDoc.bio : '';
+    openDrawer('profile-drawer');
+  }
+
+  document.getElementById('edit-profile-btn').addEventListener('click', openMyProfileDrawer);
+
+  document.getElementById('save-profile-btn').addEventListener('click', async () => {
+    if(!currentUser) return;
+    const bio = document.getElementById('my-bio-input').value.trim();
+    try{
+      await updateDoc(doc(db, 'players', currentUser.uid), { bio });
+      closeDrawer('profile-drawer');
+      toast('Apresentação salva.');
+    }catch(e){ toast('Erro: ' + e.message, true); }
+  });
 
   async function ensurePlayerDoc(user){
     const ref = doc(db, 'players', user.uid);
@@ -621,7 +714,7 @@
       // mantém nome/foto atualizados
       await updateDoc(ref, { displayName: user.displayName || '', photoURL: user.photoURL || '' });
     }
-    onSnapshot(ref, (s) => { myPlayerDoc = s.data(); renderEconomy(); renderCharGrid(); });
+    onSnapshot(ref, (s) => { myPlayerDoc = s.data(); renderEconomy(); renderCharGrid(); renderMyBio(); });
   }
 
   // ================= NAV =================
@@ -658,10 +751,17 @@
       const card = document.createElement('div');
       card.className = 'char-card' + (c.seasonMaxed ? ' maxed' : '');
       const pct = info.isMax ? 100 : Math.min(100, Math.round((info.progress / info.needed) * 100));
+      const avatarStyle = c.photoURL ? `style="background-image:url('${escapeHtml(c.photoURL)}')"` : '';
+      const avatarInitial = c.photoURL ? '' : escapeHtml((c.name||'?').slice(0,1).toUpperCase());
       card.innerHTML = `
-        <span class="tag">${c.seasonMaxed ? 'Evolução máxima da temporada' : 'Nível ' + info.level}</span>
-        <h3>${escapeHtml(c.name || 'Sem nome')}</h3>
-        <div class="patente">${pat.label}</div>
+        <div class="char-card-top">
+          <div class="char-avatar" ${avatarStyle}>${avatarInitial}</div>
+          <div class="char-card-main">
+            <span class="tag">${c.seasonMaxed ? 'Evolução máxima da temporada' : 'Nível ' + info.level}${c.isAlt ? '<span class="alt-badge">Alt</span>' : ''}</span>
+            <h3>${escapeHtml(c.name || 'Sem nome')}</h3>
+            <div class="patente">${pat.label}</div>
+          </div>
+        </div>
         <div class="progress-bar"><div style="width:${pct}%"></div></div>
         <div class="pe-line">${info.isMax ? 'Nível máximo atingido' : `${info.progress} / ${info.needed} PE para o nível ${info.level+1}`}</div>
       `;
@@ -688,7 +788,8 @@
     const ref = collection(db, 'players', currentUser.uid, 'characters');
     await addDoc(ref, {
       name, peTotal: 0, sessionsCount: 0, ppConversionsUsed: 0, gmPeApplied: 0,
-      patente: 'recruta', seasonMaxed: false, isActive: true, createdAt: serverTimestamp()
+      patente: 'recruta', seasonMaxed: false, isActive: true,
+      photoURL: '', notes: '', isAlt: false, altOf: '', createdAt: serverTimestamp()
     });
     document.getElementById('new-char-name').value = '';
     closeDrawer('char-drawer');
@@ -701,7 +802,11 @@
     const pat = patenteAtual(c.patente || 'recruta');
     const nextPat = proximaPatente(info.level, c.patente || 'recruta');
     const body = document.getElementById('detail-body');
+    const avatarStyle = c.photoURL ? `style="background-image:url('${escapeHtml(c.photoURL)}')"` : '';
+    const avatarInitial = c.photoURL ? '' : escapeHtml((c.name||'?').slice(0,1).toUpperCase());
     body.innerHTML = `
+      <div class="char-avatar-lg" id="detail-avatar-preview" ${avatarStyle}>${avatarInitial}</div>
+
       <div class="stat-grid">
         <div class="stat-box"><div class="label">Nível</div><div class="value">${info.level}</div></div>
         <div class="stat-box"><div class="label">PE total</div><div class="value">${c.peTotal || 0}</div></div>
@@ -720,9 +825,51 @@
         <input type="checkbox" id="detail-active-toggle" ${c.isActive === false ? '' : 'checked'}>
         <label style="margin:0;" for="detail-active-toggle">Personagem ativo (conta no divisor de gasto de Prestígio)</label>
       </div>
+
+      <div class="section-label" style="margin-top:1.3rem;">Perfil do personagem</div>
+      <label>Nome do personagem</label>
+      <input type="text" id="detail-edit-name" value="${escapeHtml(c.name||'')}">
+      <label>Foto (link de imagem)</label>
+      <input type="text" id="detail-edit-photo" placeholder="https://..." value="${escapeHtml(c.photoURL||'')}">
+      <div class="field-hint">Cole o link de uma imagem (Discord, Imgur, etc.). Deixe em branco para usar a inicial do nome.</div>
+      <label>Anotações</label>
+      <textarea id="detail-edit-notes" placeholder="Anotações sobre o personagem, ganchos de história, aparência, etc.">${escapeHtml(c.notes||'')}</textarea>
+      <div class="checkbox-row">
+        <input type="checkbox" id="detail-edit-isalt" ${c.isAlt ? 'checked' : ''}>
+        <label style="margin:0;" for="detail-edit-isalt">Este personagem é um Alt</label>
+      </div>
+      <div id="detail-edit-altof-wrap" style="${c.isAlt ? '' : 'display:none;'}">
+        <label>Alt de</label>
+        <input type="text" id="detail-edit-altof" placeholder="Nome do personagem principal" value="${escapeHtml(c.altOf||'')}">
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" id="detail-save-profile-btn">Salvar perfil</button>
+      </div>
     `;
     document.getElementById('detail-active-toggle').addEventListener('change', async (e) => {
       await updateDoc(doc(db, 'players', currentUser.uid, 'characters', c.id), { isActive: e.target.checked });
+    });
+    document.getElementById('detail-edit-photo').addEventListener('input', (e) => {
+      const preview = document.getElementById('detail-avatar-preview');
+      const url = e.target.value.trim();
+      if(url){ preview.style.backgroundImage = `url('${url.replace(/'/g,"%27")}')`; preview.textContent = ''; }
+      else { preview.style.backgroundImage = 'none'; preview.textContent = (document.getElementById('detail-edit-name').value||'?').slice(0,1).toUpperCase(); }
+    });
+    document.getElementById('detail-edit-isalt').addEventListener('change', (e) => {
+      document.getElementById('detail-edit-altof-wrap').style.display = e.target.checked ? '' : 'none';
+    });
+    document.getElementById('detail-save-profile-btn').addEventListener('click', async () => {
+      const name = document.getElementById('detail-edit-name').value.trim();
+      if(!name){ toast('O personagem precisa de um nome.', true); return; }
+      const photoURL = document.getElementById('detail-edit-photo').value.trim();
+      const notes = document.getElementById('detail-edit-notes').value.trim();
+      const isAlt = document.getElementById('detail-edit-isalt').checked;
+      const altOf = isAlt ? document.getElementById('detail-edit-altof').value.trim() : '';
+      try{
+        await updateDoc(doc(db, 'players', currentUser.uid, 'characters', c.id), { name, photoURL, notes, isAlt, altOf });
+        document.getElementById('detail-name').textContent = name;
+        toast('Perfil do personagem salvo.');
+      }catch(e){ toast('Erro: ' + e.message, true); }
     });
     openDrawer('detail-drawer');
   }
@@ -1050,7 +1197,12 @@
     const snap = await getDocs(collection(db, 'players', player.id, 'characters'));
     const chars = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    body.innerHTML = `<div class="stat-grid"><div class="stat-box"><div class="label">Prestígio total (PP)</div><div class="value">${player.ppTotal||0}</div></div></div>`;
+    const bio = (player.bio || '').trim();
+    body.innerHTML = `
+      <div class="stat-grid"><div class="stat-box"><div class="label">Prestígio total (PP)</div><div class="value">${player.ppTotal||0}</div></div></div>
+      <div class="section-label" style="margin-top:1rem;">Apresentação do jogador</div>
+      <div class="profile-card">${bio ? `<div class="bio-text">${escapeHtml(bio)}</div>` : '<div class="bio-text bio-empty">Este jogador ainda não escreveu uma apresentação.</div>'}</div>
+    `;
 
     if(chars.length === 0){
       body.innerHTML += '<div class="empty-hint" style="margin-top:0.9rem;">Este jogador ainda não cadastrou personagens.</div>';
@@ -1059,21 +1211,30 @@
 
     const listWrap = document.createElement('div');
     listWrap.style.marginTop = '1rem';
+    const listLabel = document.createElement('div');
+    listLabel.className = 'section-label';
+    listLabel.textContent = 'Personagens — clique para ver o perfil completo';
+    listWrap.appendChild(listLabel);
     chars.forEach(c => {
       const info = nextLevelInfo(c.peTotal || 0);
       const pat = patenteAtual(c.patente || 'recruta');
       const card = document.createElement('div');
       card.className = 'req-card';
+      card.style.cursor = 'pointer';
       card.innerHTML = `
         <div class="req-top">
           <div>
-            <div class="req-type">${escapeHtml(c.name)}</div>
+            <div class="req-type">${escapeHtml(c.name)}${c.isAlt ? '<span class="alt-badge">Alt</span>' : ''}</div>
             <div class="req-char">${pat.label} — Nível ${info.level}${c.seasonMaxed ? ' — Evolução Máxima' : ''}${c.isActive===false ? ' — Inativo' : ''}</div>
           </div>
         </div>
         <div class="req-amounts">PE total: ${c.peTotal||0} &nbsp; Sessões: ${c.sessionsCount||0}</div>
         <div class="req-note">Conversões PP→PE usadas: ${c.ppConversionsUsed||0} / ${c.sessionsCount||0} · PE de narração aplicados: ${c.gmPeApplied||0} / ${c.sessionsCount||0}</div>
       `;
+      card.addEventListener('click', (e) => {
+        if(e.target.tagName === 'BUTTON') return;
+        openStaffCharProfile(player, c);
+      });
       const btn = document.createElement('button');
       btn.className = 'btn small primary';
       btn.style.marginTop = '0.6rem';
@@ -1093,6 +1254,56 @@
     body.appendChild(listWrap);
   }
 
+  function openStaffCharProfile(player, c){
+    document.getElementById('char-profile-name').textContent = c.name || 'Personagem';
+    const info = nextLevelInfo(c.peTotal || 0);
+    const pat = patenteAtual(c.patente || 'recruta');
+    const nextPat = proximaPatente(info.level, c.patente || 'recruta');
+    const pct = info.isMax ? 100 : Math.min(100, Math.round((info.progress / info.needed) * 100));
+    const avatarStyle = c.photoURL ? `style="background-image:url('${escapeHtml(c.photoURL)}')"` : '';
+    const avatarInitial = c.photoURL ? '' : escapeHtml((c.name||'?').slice(0,1).toUpperCase());
+    const body = document.getElementById('char-profile-body');
+    body.innerHTML = `
+      <div class="char-avatar-lg" ${avatarStyle}>${avatarInitial}</div>
+      <div style="text-align:center; margin-bottom:0.8rem;">
+        <span class="patente">${pat.label}</span>${c.isAlt ? '<span class="alt-badge">Alt' + (c.altOf ? ' de ' + escapeHtml(c.altOf) : '') + '</span>' : ''}
+      </div>
+      <div class="field-hint" style="text-align:center; margin-bottom:0.6rem;">Jogador: ${escapeHtml(player.displayName||player.email||player.id)}${c.isActive===false ? ' · Inativo' : ''}</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="label">Nível</div><div class="value">${info.level}</div></div>
+        <div class="stat-box"><div class="label">PE total</div><div class="value">${c.peTotal || 0}</div></div>
+        <div class="stat-box"><div class="label">Sessões jogadas</div><div class="value">${c.sessionsCount || 0}</div></div>
+        <div class="stat-box"><div class="label">Patente</div><div class="value" style="font-size:0.95rem;">${pat.label}</div></div>
+      </div>
+      <div class="progress-bar" style="margin-top:0.9rem;"><div style="width:${pct}%"></div></div>
+      <div class="pe-line">${info.isMax ? 'Nível máximo atingido' : `${info.progress} / ${info.needed} PE para o nível ${info.level+1}`}</div>
+      <div class="section-label" style="margin-top:1.1rem;">Progressão</div>
+      <div class="field-hint">
+        ${info.isMax ? 'Personagem no nível máximo (20).' : `Faltam <b>${info.needed - info.progress} PE</b> para o nível ${info.level+1}.`}<br>
+        ${nextPat ? `Próxima patente: <b>${nextPat.label}</b> — requer nível ${nextPat.minLevel} e ${nextPat.cost} PP.` : 'Patente máxima já alcançada.'}<br>
+        Conversões de Prestígio em PE usadas: ${c.ppConversionsUsed||0} / ${c.sessionsCount||0} sessões.<br>
+        PE de narração aplicados: ${c.gmPeApplied||0} / ${c.sessionsCount||0} sessões.
+        ${c.seasonMaxed ? '<br><b style="color:var(--warn);">Em Evolução Máxima da Temporada</b>' : ''}
+      </div>
+      <div class="section-label" style="margin-top:1.1rem;">Anotações</div>
+      <div class="profile-card">${c.notes ? `<div class="bio-text">${escapeHtml(c.notes)}</div>` : '<div class="bio-text bio-empty">Sem anotações.</div>'}</div>
+      <div class="form-actions">
+        <button class="btn small primary" id="staff-grant-from-profile-btn">Usar no painel de concessão</button>
+      </div>
+    `;
+    document.getElementById('staff-grant-from-profile-btn').addEventListener('click', () => {
+      closeDrawer('char-profile-drawer');
+      switchView('staff');
+      const playerSel = document.getElementById('grant-player-select');
+      playerSel.value = player.id;
+      loadCharsForGrant(player.id).then(() => {
+        document.getElementById('grant-char-select').value = c.id;
+      });
+    });
+    closeDrawer('detail-drawer');
+    openDrawer('char-profile-drawer');
+  }
+
   // ================= SESSION COUNT (staff também pode registrar sessão jogada) =================
   // Nota: incrementar sessionsCount de um personagem destrava +1 conversão de PP->PE
   // e +1 PE de narração possíveis. Isso é feito manualmente pela staff junto da
@@ -1110,7 +1321,7 @@
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeDrawer(btn.dataset.close));
   });
-  ['char-drawer','detail-drawer','req-drawer'].forEach(id => {
+  ['char-drawer','detail-drawer','req-drawer','profile-drawer','char-profile-drawer'].forEach(id => {
     document.getElementById(id + '-backdrop').addEventListener('click', () => closeDrawer(id));
   });
 
