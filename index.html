@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexo — Terminal de Progressão</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Oswald:wght@400;500;600;700&display=swap');
+
+  :root{
+    --ice-050:#eef4f8;
+    --ice-100:#cfe0ea;
+    --ice-300:#7fa6bf;
+    --ice-500:#3d6c8a;
+    --frost:#8fd7e8;
+    --hazard:#d3572a;
+    --safe:#7fb98a;
+    --warn:#d9c07f;
+    --bg-0:#0b1014;
+    --bg-1:#101820;
+    --bg-2:#161f28;
+    --line:#26333d;
+    --ink:#dbe8ee;
+    --ink-dim:#7d909b;
+    --hud-bg:rgba(11,16,20,0.5);
+    --hud-bg-active:rgba(13,19,24,0.86);
+    --hud-line:rgba(38,51,61,0.65);
+
+    --r-xs:6px; --r-sm:9px; --r-md:14px; --r-lg:18px; --r-pill:999px;
+    --shadow-1:0 2px 8px rgba(0,0,0,0.28);
+    --shadow-2:0 10px 28px rgba(0,0,0,0.38), 0 2px 8px rgba(0,0,0,0.3);
+    --ease-soft:cubic-bezier(.25,.8,.4,1);
+    --tap-min:44px;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;min-height:100%;}
+  body{
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(143,215,232,0.06), transparent 45%),
+      radial-gradient(ellipse at 100% 0%, rgba(211,87,42,0.05), transparent 40%),
+      var(--bg-0);
+    color:var(--ink);
+    font-family:'Space Mono', monospace;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Oswald',sans-serif; letter-spacing:0.02em;}
+  a{color:inherit;}
+  button{ font-family:inherit; }
+  ::selection{ background:rgba(143,215,232,0.25); }
+
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
+  @keyframes reveal{ from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:translateY(0);} }
+
+  /* ---------- top bar ---------- */
+  #topbar{
+    position:sticky; top:0; z-index:900;
+    display:flex; align-items:center; justify-content:space-between; gap:1rem;
+    padding:0.9rem 1.2rem;
+    background:var(--hud-bg-active);
+    backdrop-filter:blur(10px) saturate(1.1);
+    -webkit-backdrop-filter:blur(10px) saturate(1.1);
+    border-bottom:1px solid var(--hud-line);
+  }
+  .brand{ display:flex; flex-direction:column; gap:0.15rem; }
+  .brand .eyebrow{
+    font-size:0.6rem; color:var(--hazard); text-transform:uppercase; letter-spacing:0.24em;
+    display:flex; align-items:center; gap:0.5rem;
+  }
+  .brand .eyebrow::before{ content:""; width:6px; height:6px; background:var(--hazard); border-radius:50%; display:inline-block; animation:pulse 2.2s infinite ease-in-out; flex-shrink:0; }
+  .brand h1{ font-size:1.15rem; margin:0; text-transform:uppercase; color:var(--ink); }
+  .brand h1 span{ color:var(--frost); }
+
+  #account-box{ display:flex; align-items:center; gap:0.7rem; }
+  .btn{
+    background:rgba(22,31,40,0.6); border:1px solid var(--line); border-radius:var(--r-sm); color:var(--ink-dim);
+    font-family:'Space Mono',monospace; font-size:0.7rem; min-height:2.3rem; padding:0.5rem 0.9rem; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.05em; display:inline-flex; align-items:center; gap:0.45rem;
+    transition:border-color 0.15s var(--ease-soft), color 0.15s var(--ease-soft), background 0.15s var(--ease-soft), transform 0.15s var(--ease-soft);
+  }
+  .btn:hover{ border-color:var(--ice-300); color:var(--ink); transform:translateY(-1px); }
+  .btn:active{ transform:translateY(0); }
+  .btn.primary{ border-color:var(--frost); color:var(--frost); background:rgba(143,215,232,0.1); }
+  .btn.primary:hover{ background:rgba(143,215,232,0.18); }
+  .btn.danger{ border-color:var(--hazard); color:var(--hazard); }
+  .btn.danger:hover{ background:rgba(211,87,42,0.12); }
+  .btn.small{ min-height:1.9rem; font-size:0.62rem; padding:0.35rem 0.65rem; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; transform:none !important; }
+
+  .avatar{
+    width:32px; height:32px; border-radius:50%; background:var(--bg-1) center/cover no-repeat;
+    border:1px solid var(--ice-300); display:flex; align-items:center; justify-content:center;
+    font-family:'Oswald',sans-serif; font-size:0.8rem; color:var(--frost); flex-shrink:0;
+  }
+  .user-chip{ display:flex; align-items:center; gap:0.55rem; }
+  .user-chip .name{ font-size:0.76rem; color:var(--ink); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* ---------- nav tabs ---------- */
+  #navbar{
+    position:sticky; top:60px; z-index:850;
+    display:flex; gap:0.5rem; flex-wrap:wrap;
+    padding:0.7rem 1.2rem;
+    background:var(--hud-bg);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--hud-line);
+  }
+  .tab-btn{
+    background:none; border:1px solid var(--line); border-radius:var(--r-pill); color:var(--ink-dim);
+    font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em; padding:0.5rem 1rem; min-height:2.15rem;
+    cursor:pointer; transition:border-color 0.15s var(--ease-soft), color 0.15s var(--ease-soft), background 0.15s var(--ease-soft);
+  }
+  .tab-btn:hover{ border-color:var(--ice-300); color:var(--ink); }
+  .tab-btn.active{ border-color:var(--frost); color:var(--frost); background:rgba(143,215,232,0.1); }
+  .tab-btn.staff{ border-color:#5a2c1c; color:var(--hazard); }
+  .tab-btn.staff.active{ background:rgba(211,87,42,0.12); }
+
+  /* ---------- stage / layout ---------- */
+  #stage{ max-width:1100px; margin:0 auto; padding:1.4rem 1.2rem 4rem; }
+  .view{ display:none; animation:reveal 0.3s var(--ease-soft); }
+  .view.active{ display:block; }
+
+  .panel{
+    background:var(--hud-bg); border:1px solid var(--hud-line); border-radius:var(--r-lg);
+    padding:1.1rem 1.2rem; margin-bottom:1rem;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+  .panel h2{ font-size:1rem; margin:0 0 0.2rem; text-transform:uppercase; color:var(--ink); }
+  .section-label{
+    font-size:0.64rem; text-transform:uppercase; letter-spacing:0.2em; color:var(--ink-dim);
+    margin:0 0 0.9rem; display:flex; align-items:center; gap:0.6rem;
+  }
+  .section-label::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  .empty-hint{
+    color:var(--ink-dim); font-size:0.78rem; border:1px dashed var(--line); border-radius:var(--r-md);
+    padding:1.4rem; text-align:center;
+  }
+
+  /* login gate */
+  #login-gate{ display:flex; align-items:center; justify-content:center; min-height:70vh; padding:1.5rem; }
+  #login-gate .panel{ max-width:380px; text-align:center; }
+  #login-gate p{ color:var(--ink-dim); font-size:0.8rem; line-height:1.6; margin:0.6rem 0 1.2rem; }
+
+  /* economy summary */
+  .stat-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.8rem; margin-top:0.8rem; }
+  .stat-box{ background:var(--bg-1); border:1px solid var(--line); border-radius:var(--r-md); padding:0.8rem 0.9rem; }
+  .stat-box .label{ font-size:0.6rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--ink-dim); margin-bottom:0.3rem; }
+  .stat-box .value{ font-family:'Oswald',sans-serif; font-size:1.35rem; color:var(--frost); }
+  .stat-box .sub{ font-size:0.62rem; color:var(--ink-dim); margin-top:0.2rem; }
+
+  /* character cards */
+  .char-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:0.9rem; margin-top:0.8rem; }
+  .char-card{
+    background:var(--bg-1); border:1px solid var(--ice-500); border-radius:var(--r-md); padding:1rem 1.1rem;
+    cursor:pointer; transition:border-color .15s var(--ease-soft), transform .15s var(--ease-soft), box-shadow .15s var(--ease-soft);
+    position:relative;
+  }
+  .char-card:hover{ border-color:var(--frost); transform:translateY(-2px); box-shadow:var(--shadow-1); }
+  .char-card.maxed{ border-color:var(--warn); }
+  .char-card .tag{ font-size:0.58rem; color:var(--ice-300); text-transform:uppercase; letter-spacing:0.14em; margin-bottom:0.35rem; display:block;}
+  .char-card.maxed .tag{ color:var(--warn); }
+  .char-card h3{ margin:0 0 0.4rem; font-size:1.05rem; color:var(--frost); text-transform:uppercase; }
+  .char-card .patente{
+    display:inline-block; font-size:0.58rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--ice-300);
+    border:1px solid var(--ice-500); border-radius:var(--r-pill); padding:0.14rem 0.55rem; margin-bottom:0.6rem;
+  }
+  .progress-bar{ height:6px; border-radius:var(--r-pill); background:var(--bg-2); overflow:hidden; margin:0.3rem 0 0.2rem; }
+  .progress-bar > div{ height:100%; background:var(--frost); border-radius:var(--r-pill); transition:width .3s var(--ease-soft); }
+  .char-card .pe-line{ font-size:0.68rem; color:var(--ink-dim); }
+  .char-card .inactive-badge{ position:absolute; top:0.8rem; right:0.8rem; font-size:0.55rem; color:var(--ink-dim); text-transform:uppercase; border:1px solid var(--line); border-radius:var(--r-pill); padding:0.1rem 0.5rem; }
+
+  .add-char-card{
+    border:1px dashed var(--line); border-radius:var(--r-md); display:flex; align-items:center; justify-content:center;
+    min-height:130px; cursor:pointer; color:var(--ink-dim); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;
+    transition:border-color .15s var(--ease-soft), color .15s var(--ease-soft);
+  }
+  .add-char-card:hover{ border-color:var(--frost); color:var(--frost); }
+
+  /* forms */
+  label{ display:block; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-dim); margin:0.7rem 0 0.3rem; }
+  label:first-of-type{ margin-top:0; }
+  input[type=text], input[type=number], select, textarea{
+    width:100%; background:var(--bg-1); border:1px solid var(--line); border-radius:var(--r-sm); color:var(--ink);
+    font-family:'Space Mono',monospace; font-size:0.78rem; padding:0.55rem 0.65rem; outline:none;
+    transition:border-color 0.15s var(--ease-soft); box-sizing:border-box;
+  }
+  input:focus, select:focus, textarea:focus{ border-color:var(--frost); }
+  textarea{ resize:vertical; min-height:70px; }
+  .form-actions{ display:flex; gap:0.6rem; margin-top:1rem; flex-wrap:wrap; }
+  .field-hint{ font-size:0.62rem; color:var(--ink-dim); margin-top:0.3rem; line-height:1.5; }
+  .checkbox-row{ display:flex; align-items:center; gap:0.5rem; margin-top:0.7rem; font-size:0.72rem; color:var(--ink-dim); }
+  .checkbox-row input{ accent-color:var(--frost); width:auto; }
+
+  /* drawer / modal */
+  .backdrop{ position:fixed; inset:0; background:rgba(6,10,13,0.6); z-index:3000; display:none; }
+  .backdrop.open{ display:block; }
+  .drawer{
+    position:fixed; top:0; right:0; bottom:0; width:min(440px,94vw);
+    background:var(--bg-0); border-left:1px solid var(--line); z-index:3100;
+    transform:translateX(100%); transition:transform 0.25s ease; overflow-y:auto;
+    box-shadow:-12px 0 32px rgba(0,0,0,0.5);
+  }
+  .drawer.open{ transform:translateX(0); }
+  .drawer .drawer-header{
+    position:sticky; top:0; z-index:2; background:var(--bg-0); border-bottom:1px solid var(--line);
+    padding:1rem 1.2rem 0.9rem; display:flex; align-items:flex-start; justify-content:space-between; gap:0.6rem;
+  }
+  .drawer .drawer-header .eyebrow{ font-size:0.6rem; color:var(--hazard); text-transform:uppercase; letter-spacing:0.22em; display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem; }
+  .drawer .drawer-header .eyebrow::before{ content:""; width:6px; height:6px; background:var(--hazard); border-radius:50%; display:inline-block; animation:pulse 2.2s infinite ease-in-out; flex-shrink:0; }
+  .drawer .drawer-header h2{ font-size:1.15rem; margin:0; text-transform:uppercase; color:var(--ink); }
+  .drawer-close{
+    background:none; border:1px solid var(--line); border-radius:50%; color:var(--ink-dim);
+    width:var(--tap-min); height:var(--tap-min); cursor:pointer; font-size:1.1rem; line-height:1; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    transition:border-color 0.15s var(--ease-soft), color 0.15s var(--ease-soft), transform 0.15s var(--ease-soft);
+  }
+  .drawer-close:hover{ border-color:var(--hazard); color:var(--hazard); transform:rotate(90deg); }
+  .drawer .drawer-body{ padding:1rem 1.2rem 2.5rem; }
+
+  /* redemption list */
+  .req-card{
+    background:var(--bg-1); border:1px solid var(--line); border-radius:var(--r-md); padding:0.85rem 1rem;
+    margin-bottom:0.7rem; animation:reveal .3s var(--ease-soft);
+  }
+  .req-card .req-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:0.8rem; margin-bottom:0.4rem; }
+  .req-card .req-type{ font-family:'Oswald',sans-serif; font-size:0.95rem; color:var(--frost); }
+  .req-card .req-char{ font-size:0.62rem; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em; }
+  .req-card .req-amounts{ font-size:0.78rem; color:var(--ink); margin:0.3rem 0; }
+  .req-card .req-note{ font-size:0.72rem; color:var(--ink-dim); line-height:1.5; }
+  .status-badge{
+    font-size:0.58rem; text-transform:uppercase; letter-spacing:0.08em; padding:0.16rem 0.55rem; border-radius:var(--r-pill);
+    border:1px solid; flex-shrink:0; white-space:nowrap;
+  }
+  .status-pendente{ color:var(--warn); border-color:#7a6a3a; }
+  .status-aprovado{ color:var(--safe); border-color:#3a5a3f; }
+  .status-negado{ color:var(--hazard); border-color:#5a2c1c; }
+  .status-cancelado{ color:var(--ink-dim); border-color:var(--line); }
+  .req-card .req-actions{ display:flex; gap:0.5rem; margin-top:0.6rem; flex-wrap:wrap; }
+  .req-card .staff-who{ font-size:0.6rem; color:var(--ink-dim); margin-top:0.4rem; }
+
+  /* toast */
+  #toast{
+    position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%) translateY(20px); z-index:4000;
+    background:var(--bg-2); border:1px solid var(--ice-500); border-radius:var(--r-sm); color:var(--ink);
+    font-size:0.74rem; padding:0.7rem 1.1rem; box-shadow:var(--shadow-2); opacity:0; pointer-events:none;
+    transition:opacity 0.2s var(--ease-soft), transform 0.2s var(--ease-soft); max-width:90vw; text-align:center;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast.error{ border-color:var(--hazard); }
+
+  .uid-box{ font-size:0.68rem; color:var(--ink-dim); background:var(--bg-1); border:1px solid var(--line); border-radius:var(--r-xs); padding:0.5rem 0.6rem; word-break:break-all; margin-top:0.4rem; }
+
+  table{ width:100%; border-collapse:collapse; font-size:0.72rem; }
+  thead th{ text-align:left; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em; font-size:0.58rem; border-bottom:1px solid var(--line); padding:0.4rem 0.5rem; }
+  tbody td{ padding:0.5rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:hover{ background:var(--bg-1); }
+
+  @media (max-width:640px){
+    #topbar{ padding:0.7rem 0.9rem; }
+    #navbar{ padding:0.6rem 0.9rem; top:56px; overflow-x:auto; flex-wrap:nowrap; }
+    .user-chip .name{ display:none; }
+    #stage{ padding:1rem 0.8rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="brand">
+    <div class="eyebrow">Nexo // Ordo Realitas</div>
+    <h1>Terminal de <span>Progressão</span></h1>
+  </div>
+  <div id="account-box"></div>
+</div>
+
+<nav id="navbar" style="display:none;">
+  <button class="tab-btn" data-view="personagens">Personagens</button>
+  <button class="tab-btn" data-view="economia">Economia</button>
+  <button class="tab-btn" data-view="resgates">Resgates</button>
+  <button class="tab-btn staff" data-view="staff" id="staff-tab" style="display:none;">Staff</button>
+</nav>
+
+<div id="stage">
+
+  <div id="login-gate">
+    <div class="panel">
+      <div class="section-label">Acesso restrito</div>
+      <h2>Entre para acessar seu terminal</h2>
+      <p>Use sua conta Google para carregar seus personagens, acompanhar Pontos de Evolução, Prestígio e solicitar resgates.</p>
+      <button class="btn primary" id="login-btn">Entrar com Google</button>
+    </div>
+  </div>
+
+  <!-- PERSONAGENS -->
+  <section class="view" id="view-personagens">
+    <div class="panel">
+      <div class="section-label">Seus personagens</div>
+      <div id="char-grid" class="char-grid"></div>
+    </div>
+  </section>
+
+  <!-- ECONOMIA -->
+  <section class="view" id="view-economia">
+    <div class="panel">
+      <div class="section-label">Banco de Prestígio</div>
+      <h2>Economia do jogador</h2>
+      <div id="economy-stats" class="stat-grid"></div>
+      <div class="field-hint" style="margin-top:0.9rem;">
+        O teto de gasto é recalculado a cada operação: PP total ÷ personagens ativos (personagens em Evolução Máxima da Temporada não contam nesse divisor).
+      </div>
+    </div>
+  </section>
+
+  <!-- RESGATES -->
+  <section class="view" id="view-resgates">
+    <div class="panel">
+      <div class="section-label">Suas solicitações</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+        <h2 style="margin:0;">Resgates &amp; conversões</h2>
+        <button class="btn primary" id="new-req-btn">+ Nova solicitação</button>
+      </div>
+      <div id="req-list" style="margin-top:1rem;"></div>
+    </div>
+  </section>
+
+  <!-- STAFF -->
+  <section class="view" id="view-staff">
+    <div class="panel">
+      <div class="section-label">Fila de solicitações pendentes</div>
+      <div id="staff-pending-list"></div>
+    </div>
+    <div class="panel">
+      <div class="section-label">Conceder PE / PP manualmente</div>
+      <h2>Aplicar concessão</h2>
+      <label>Jogador</label>
+      <select id="grant-player-select"></select>
+      <label>Personagem</label>
+      <select id="grant-char-select"></select>
+      <label>Pontos de Evolução (PE)</label>
+      <input type="number" id="grant-pe" value="0" min="0">
+      <label>Pontos de Prestígio (PP)</label>
+      <input type="number" id="grant-pp" value="0" min="0">
+      <label>Motivo</label>
+      <textarea id="grant-reason" placeholder="Ex: sessão de 19/08, recompensa especial, aposta..."></textarea>
+      <div class="checkbox-row">
+        <input type="checkbox" id="grant-counts-session">
+        <label style="margin:0;" for="grant-counts-session">Contar como sessão jogada (destrava +1 conversão PP→PE e +1 PE de narração)</label>
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" id="grant-submit-btn">Conceder</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="section-label">Todos os jogadores</div>
+      <div id="staff-players-table"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- drawer: novo personagem -->
+<div class="backdrop" id="char-drawer-backdrop"></div>
+<div class="drawer" id="char-drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="eyebrow">Novo registro</div>
+      <h2>Cadastrar personagem</h2>
+    </div>
+    <button class="drawer-close" data-close="char-drawer">✕</button>
+  </div>
+  <div class="drawer-body">
+    <label>Nome do personagem</label>
+    <input type="text" id="new-char-name" placeholder="Nome do agente">
+    <div class="form-actions">
+      <button class="btn primary" id="create-char-btn">Cadastrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- drawer: detalhe do personagem -->
+<div class="backdrop" id="detail-drawer-backdrop"></div>
+<div class="drawer" id="detail-drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="eyebrow">Ficha de progressão</div>
+      <h2 id="detail-name">—</h2>
+    </div>
+    <button class="drawer-close" data-close="detail-drawer">✕</button>
+  </div>
+  <div class="drawer-body" id="detail-body"></div>
+</div>
+
+<!-- drawer: nova solicitação -->
+<div class="backdrop" id="req-drawer-backdrop"></div>
+<div class="drawer" id="req-drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="eyebrow">Solicitação</div>
+      <h2>Nova solicitação</h2>
+    </div>
+    <button class="drawer-close" data-close="req-drawer">✕</button>
+  </div>
+  <div class="drawer-body">
+    <label>Personagem</label>
+    <select id="req-char-select"></select>
+
+    <label>Tipo de solicitação</label>
+    <select id="req-type-select">
+      <option value="convert_pp_pe">Converter Prestígio em PE (200 PP = 1 PE)</option>
+      <option value="patente">Adquirir patente</option>
+      <option value="loja">Compra na Loja</option>
+      <option value="outro">Outro / resgate de sessão</option>
+    </select>
+
+    <div id="req-fields"></div>
+
+    <label>Detalhes / origem</label>
+    <textarea id="req-note" placeholder="Ex: sessão de 19/08 mestrada por Fulano, aposta, etc."></textarea>
+
+    <div class="field-hint" id="req-limit-hint"></div>
+
+    <div class="form-actions">
+      <button class="btn primary" id="submit-req-btn">Enviar solicitação</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, doc, setDoc, getDoc, updateDoc, addDoc, collection, query, where,
+    onSnapshot, serverTimestamp, deleteDoc, orderBy, runTransaction, increment, getDocs
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ================= CONFIG =================
+  const firebaseConfig = {
+    apiKey: "AIzaSyADHeL4G3ntVOC4uhdAT4YzQkJLJt4pTGU",
+    authDomain: "progressao-nexo.firebaseapp.com",
+    projectId: "progressao-nexo",
+    storageBucket: "progressao-nexo.firebasestorage.app",
+    messagingSenderId: "103038923836",
+    appId: "1:103038923836:web:225fba1469fd6a6ceeff39",
+    measurementId: "G-NVCLE22Q77"
+  };
+
+  // Lista fixa de admins (UIDs do Firebase Auth). Adicione seu UID aqui
+  // DEPOIS de logar pela primeira vez (ele aparece no rodapé da tela de login
+  // se você não estiver na lista, e também no console do navegador).
+  // IMPORTANTE: a mesma lista precisa estar em firestore.rules, senão as
+  // regras de segurança vão continuar bloqueando ações de staff no banco.
+  const ADMIN_UIDS = [
+    // "cole_seu_uid_aqui",
+  ];
+
+  // Temporada vigente (ajuste manualmente a cada nova temporada)
+  const SEASON = { name: "Temporada 1", maxLevel: 8, maxNex: 40 };
+
+  // Tabela de patentes: nível mínimo + custo em PP
+  const PATENTES = [
+    { key: "recruta", label: "Recruta", minLevel: 1, cost: 0 },
+    { key: "operador", label: "Operador", minLevel: 4, cost: 300 },
+    { key: "agente_especial", label: "Agente Especial", minLevel: 8, cost: 700 },
+    { key: "oficial_operacoes", label: "Oficial de Operações", minLevel: 13, cost: 1000 },
+    { key: "agente_elite", label: "Agente de Elite", minLevel: 17, cost: 1500 },
+  ];
+
+  // ================= FIREBASE INIT =================
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  // ================= HELPERS =================
+  function toast(msg, isError=false){
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('error', isError);
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=> el.classList.remove('show'), 3200);
+  }
+
+  function isAdmin(uid){ return ADMIN_UIDS.includes(uid); }
+
+  // custo incremental de PE por nível (nível N precisa desse tanto de PE
+  // além do que já foi gasto pra chegar no nível N-1)
+  function peCostForLevel(level){
+    if(level <= 1) return 0;
+    if(level <= 10) return level - 1; // nível2=1 ... nível10=6 (níveis 8,9,10 ficam fixos em 6 pela tabela)
+    return 7; // 11..20
+  }
+  // a tabela original trava em 6 do nível 6 ao 10, então corrige a regra acima:
+  function peCostForLevelFixed(level){
+    if(level <= 1) return 0;
+    if(level <= 6) return level - 1;   // 2:1 3:2 4:3 5:4 6:5
+    if(level <= 10) return 6;          // 7:6 8:6 9:6 10:6
+    return 7;                          // 11..20
+  }
+  // PE cumulativo necessário para estar EM um dado nível
+  function cumulativePeForLevel(level){
+    let total = 0;
+    for(let l=2; l<=level; l++) total += peCostForLevelFixed(l);
+    return total;
+  }
+  function levelFromPe(peTotal){
+    let level = 1;
+    while(level < 20 && peTotal >= cumulativePeForLevel(level+1)) level++;
+    return level;
+  }
+  function nextLevelInfo(peTotal){
+    const level = levelFromPe(peTotal);
+    if(level >= 20) return { level, isMax:true };
+    const floor = cumulativePeForLevel(level);
+    const ceil = cumulativePeForLevel(level+1);
+    return { level, isMax:false, floor, ceil, progress: peTotal - floor, needed: ceil - floor };
+  }
+  function patenteAtual(charPatenteKey){
+    return PATENTES.find(p => p.key === charPatenteKey) || PATENTES[0];
+  }
+  function proximaPatente(level, currentKey){
+    const idx = PATENTES.findIndex(p => p.key === currentKey);
+    const next = PATENTES[idx+1];
+    if(!next) return null;
+    return next;
+  }
+
+  // ================= STATE =================
+  let currentUser = null;
+  let myPlayerDoc = null;      // { ppTotal, displayName, ... }
+  let myCharacters = [];        // array de {id, ...data}
+  let myRequests = [];
+  let unsubCharacters = null;
+  let unsubRequests = null;
+  let unsubPending = null;
+  let unsubAllPlayers = null;
+
+  // ================= AUTH =================
+  document.getElementById('login-btn').addEventListener('click', async () => {
+    try{ await signInWithPopup(auth, provider); }
+    catch(e){ toast('Falha no login: ' + e.message, true); }
+  });
+
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    cleanupSubscriptions();
+    if(!user){
+      renderLoggedOut();
+      return;
+    }
+    document.getElementById('login-gate').style.display = 'none';
+    document.getElementById('navbar').style.display = 'flex';
+
+    await ensurePlayerDoc(user);
+    renderAccountBox(user);
+    subscribeCharacters(user.uid);
+    subscribeMyRequests(user.uid);
+
+    const admin = isAdmin(user.uid);
+    document.getElementById('staff-tab').style.display = admin ? 'inline-block' : 'none';
+    if(admin){
+      subscribePendingRequests();
+      subscribeAllPlayers();
+    }
+
+    if(!admin) console.info('Seu UID (caso precise virar staff):', user.uid);
+  });
+
+  function cleanupSubscriptions(){
+    if(unsubCharacters) unsubCharacters();
+    if(unsubRequests) unsubRequests();
+    if(unsubPending) unsubPending();
+    if(unsubAllPlayers) unsubAllPlayers();
+  }
+
+  function renderLoggedOut(){
+    document.getElementById('login-gate').style.display = 'flex';
+    document.getElementById('navbar').style.display = 'none';
+    document.getElementById('account-box').innerHTML = '';
+    myCharacters = []; myRequests = []; myPlayerDoc = null;
+  }
+
+  function renderAccountBox(user){
+    const box = document.getElementById('account-box');
+    box.innerHTML = '';
+    const chip = document.createElement('div');
+    chip.className = 'user-chip';
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    if(user.photoURL){ av.style.backgroundImage = `url(${user.photoURL})`; }
+    else { av.textContent = (user.displayName||'?').slice(0,1).toUpperCase(); }
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = user.displayName || user.email || 'Agente';
+    chip.appendChild(av); chip.appendChild(name);
+    const logoutBtn = document.createElement('button');
+    logoutBtn.className = 'btn small';
+    logoutBtn.textContent = 'Sair';
+    logoutBtn.addEventListener('click', () => signOut(auth));
+    box.appendChild(chip);
+    box.appendChild(logoutBtn);
+  }
+
+  async function ensurePlayerDoc(user){
+    const ref = doc(db, 'players', user.uid);
+    const snap = await getDoc(ref);
+    if(!snap.exists()){
+      await setDoc(ref, {
+        displayName: user.displayName || '',
+        email: user.email || '',
+        photoURL: user.photoURL || '',
+        ppTotal: 0,
+        createdAt: serverTimestamp()
+      });
+    } else {
+      // mantém nome/foto atualizados
+      await updateDoc(ref, { displayName: user.displayName || '', photoURL: user.photoURL || '' });
+    }
+    onSnapshot(ref, (s) => { myPlayerDoc = s.data(); renderEconomy(); renderCharGrid(); });
+  }
+
+  // ================= NAV =================
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchView(btn.dataset.view));
+  });
+  function switchView(name){
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  }
+  switchView('personagens');
+
+  // ================= CHARACTERS =================
+  function subscribeCharacters(uid){
+    const ref = collection(db, 'players', uid, 'characters');
+    unsubCharacters = onSnapshot(ref, (snap) => {
+      myCharacters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderCharGrid();
+      renderEconomy();
+      populateCharSelects();
+    });
+  }
+
+  function activeCharCount(){
+    return myCharacters.filter(c => c.isActive !== false && !c.seasonMaxed).length || 1;
+  }
+
+  function renderCharGrid(){
+    const grid = document.getElementById('char-grid');
+    grid.innerHTML = '';
+    myCharacters.forEach(c => {
+      const info = nextLevelInfo(c.peTotal || 0);
+      const pat = patenteAtual(c.patente || 'recruta');
+      const card = document.createElement('div');
+      card.className = 'char-card' + (c.seasonMaxed ? ' maxed' : '');
+      const pct = info.isMax ? 100 : Math.min(100, Math.round((info.progress / info.needed) * 100));
+      card.innerHTML = `
+        <span class="tag">${c.seasonMaxed ? 'Evolução máxima da temporada' : 'Nível ' + info.level}</span>
+        <h3>${escapeHtml(c.name || 'Sem nome')}</h3>
+        <div class="patente">${pat.label}</div>
+        <div class="progress-bar"><div style="width:${pct}%"></div></div>
+        <div class="pe-line">${info.isMax ? 'Nível máximo atingido' : `${info.progress} / ${info.needed} PE para o nível ${info.level+1}`}</div>
+      `;
+      if(c.isActive === false){
+        const badge = document.createElement('div');
+        badge.className = 'inactive-badge';
+        badge.textContent = 'Inativo';
+        card.appendChild(badge);
+      }
+      card.addEventListener('click', () => openCharDetail(c));
+      grid.appendChild(card);
+    });
+    const addCard = document.createElement('div');
+    addCard.className = 'add-char-card';
+    addCard.textContent = '+ Cadastrar personagem';
+    addCard.addEventListener('click', () => openDrawer('char-drawer'));
+    grid.appendChild(addCard);
+  }
+
+  document.getElementById('create-char-btn').addEventListener('click', async () => {
+    const name = document.getElementById('new-char-name').value.trim();
+    if(!name){ toast('Dê um nome ao personagem.', true); return; }
+    if(!currentUser) return;
+    const ref = collection(db, 'players', currentUser.uid, 'characters');
+    await addDoc(ref, {
+      name, peTotal: 0, sessionsCount: 0, ppConversionsUsed: 0, gmPeApplied: 0,
+      patente: 'recruta', seasonMaxed: false, isActive: true, createdAt: serverTimestamp()
+    });
+    document.getElementById('new-char-name').value = '';
+    closeDrawer('char-drawer');
+    toast('Personagem cadastrado.');
+  });
+
+  function openCharDetail(c){
+    document.getElementById('detail-name').textContent = c.name;
+    const info = nextLevelInfo(c.peTotal || 0);
+    const pat = patenteAtual(c.patente || 'recruta');
+    const nextPat = proximaPatente(info.level, c.patente || 'recruta');
+    const body = document.getElementById('detail-body');
+    body.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box"><div class="label">Nível</div><div class="value">${info.level}</div></div>
+        <div class="stat-box"><div class="label">PE total</div><div class="value">${c.peTotal || 0}</div></div>
+        <div class="stat-box"><div class="label">Sessões jogadas</div><div class="value">${c.sessionsCount || 0}</div></div>
+        <div class="stat-box"><div class="label">Patente</div><div class="value" style="font-size:0.95rem;">${pat.label}</div></div>
+      </div>
+      <div class="section-label" style="margin-top:1.1rem;">Próximos passos</div>
+      <div class="field-hint">
+        ${info.isMax ? 'Personagem no nível máximo (20).' : `Faltam <b>${info.needed - info.progress} PE</b> para o nível ${info.level+1}.`}<br>
+        ${nextPat ? `Próxima patente: <b>${nextPat.label}</b> — requer nível ${nextPat.minLevel} e ${nextPat.cost} PP.` : 'Patente máxima já alcançada.'}<br>
+        Conversões de Prestígio em PE usadas: ${c.ppConversionsUsed||0} / ${c.sessionsCount||0} sessões.<br>
+        PE de narração aplicados: ${c.gmPeApplied||0} / ${c.sessionsCount||0} sessões.
+        ${c.seasonMaxed ? '<br><b style="color:var(--warn);">Em Evolução Máxima da Temporada</b> — recebe 50% de PP, imune a penalidade de morte em Ciclos, e não conta no divisor de gasto de Prestígio dos demais personagens.' : ''}
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="detail-active-toggle" ${c.isActive === false ? '' : 'checked'}>
+        <label style="margin:0;" for="detail-active-toggle">Personagem ativo (conta no divisor de gasto de Prestígio)</label>
+      </div>
+    `;
+    document.getElementById('detail-active-toggle').addEventListener('change', async (e) => {
+      await updateDoc(doc(db, 'players', currentUser.uid, 'characters', c.id), { isActive: e.target.checked });
+    });
+    openDrawer('detail-drawer');
+  }
+
+  // ================= ECONOMIA =================
+  function renderEconomy(){
+    const el = document.getElementById('economy-stats');
+    if(!myPlayerDoc){ el.innerHTML=''; return; }
+    const ppTotal = myPlayerDoc.ppTotal || 0;
+    const divisor = activeCharCount();
+    const limit = Math.floor(ppTotal / divisor);
+    el.innerHTML = `
+      <div class="stat-box"><div class="label">Prestígio total (PP)</div><div class="value">${ppTotal}</div></div>
+      <div class="stat-box"><div class="label">Personagens ativos</div><div class="value">${divisor}</div><div class="sub">excluindo os em Evolução Máxima</div></div>
+      <div class="stat-box"><div class="label">Teto de gasto por operação</div><div class="value">${limit}</div><div class="sub">PP total ÷ personagens ativos</div></div>
+    `;
+  }
+
+  // ================= REQUESTS (player) =================
+  document.getElementById('new-req-btn').addEventListener('click', () => {
+    if(myCharacters.length === 0){ toast('Cadastre um personagem primeiro.', true); return; }
+    updateReqFields();
+    openDrawer('req-drawer');
+  });
+
+  function populateCharSelects(){
+    ['req-char-select'].forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = myCharacters.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    });
+  }
+
+  document.getElementById('req-type-select').addEventListener('change', updateReqFields);
+  document.getElementById('req-char-select').addEventListener('change', updateReqFields);
+
+  function updateReqFields(){
+    const type = document.getElementById('req-type-select').value;
+    const fields = document.getElementById('req-fields');
+    const charId = document.getElementById('req-char-select').value;
+    const c = myCharacters.find(x => x.id === charId);
+    const hint = document.getElementById('req-limit-hint');
+
+    if(type === 'convert_pp_pe'){
+      fields.innerHTML = `
+        <label>Quantidade de PP a converter (200 PP = 1 PE)</label>
+        <input type="number" id="req-pp-amount" min="200" step="200" value="200">
+      `;
+      const used = c ? (c.ppConversionsUsed||0) : 0;
+      const sessions = c ? (c.sessionsCount||0) : 0;
+      hint.textContent = `Limite: 1 PE extra por sessão jogada. Você já usou ${used} de ${sessions} conversões disponíveis.`;
+    } else if(type === 'patente'){
+      const info = c ? nextLevelInfo(c.peTotal||0) : null;
+      const next = c ? proximaPatente(info.level, c.patente||'recruta') : null;
+      fields.innerHTML = `<div class="field-hint">${next ? `Próxima patente disponível: <b>${next.label}</b> (requer nível ${next.minLevel} + ${next.cost} PP).` : 'Nenhuma patente pendente ou personagem ainda não tem nível suficiente.'}</div>`;
+      hint.textContent = '';
+    } else if(type === 'loja'){
+      fields.innerHTML = `<label>Quantidade de PP</label><input type="number" id="req-pp-amount" min="1" value="0">`;
+      hint.textContent = '';
+    } else {
+      fields.innerHTML = `<label>PE solicitado</label><input type="number" id="req-pe-amount" min="0" value="0">
+        <label>PP solicitado</label><input type="number" id="req-pp-amount2" min="0" value="0">`;
+      hint.textContent = 'Use para registrar resgate de recompensa de sessão, aposta, etc.';
+    }
+  }
+
+  document.getElementById('submit-req-btn').addEventListener('click', async () => {
+    const charId = document.getElementById('req-char-select').value;
+    const c = myCharacters.find(x => x.id === charId);
+    if(!c){ toast('Selecione um personagem.', true); return; }
+    const type = document.getElementById('req-type-select').value;
+    const note = document.getElementById('req-note').value.trim();
+    let payload = { uid: currentUser.uid, charId, charName: c.name, type, note, status: 'pendente', createdAt: serverTimestamp() };
+
+    if(type === 'convert_pp_pe'){
+      const pp = parseInt(document.getElementById('req-pp-amount').value || '0', 10);
+      if(pp < 200 || pp % 200 !== 0){ toast('Informe um múltiplo de 200 PP.', true); return; }
+      const peGain = pp / 200;
+      const used = c.ppConversionsUsed || 0;
+      const sessions = c.sessionsCount || 0;
+      if(used + peGain > sessions){ toast('Limite de conversões excedido para as sessões já jogadas.', true); return; }
+      payload.ppAmount = pp; payload.peAmount = peGain;
+    } else if(type === 'patente'){
+      const info = nextLevelInfo(c.peTotal||0);
+      const next = proximaPatente(info.level, c.patente||'recruta');
+      if(!next){ toast('Nenhuma patente disponível para solicitar.', true); return; }
+      if(info.level < next.minLevel){ toast('Nível insuficiente para essa patente.', true); return; }
+      payload.ppAmount = next.cost; payload.patenteKey = next.key; payload.patenteLabel = next.label;
+    } else if(type === 'loja'){
+      const pp = parseInt(document.getElementById('req-pp-amount').value || '0', 10);
+      if(pp <= 0){ toast('Informe uma quantidade de PP válida.', true); return; }
+      payload.ppAmount = pp;
+    } else {
+      const pe = parseInt(document.getElementById('req-pe-amount').value || '0', 10);
+      const pp = parseInt(document.getElementById('req-pp-amount2').value || '0', 10);
+      payload.peAmount = pe; payload.ppAmount = pp;
+    }
+
+    await addDoc(collection(db, 'redemptions'), payload);
+    closeDrawer('req-drawer');
+    toast('Solicitação enviada. Aguarde a análise da staff.');
+  });
+
+  function subscribeMyRequests(uid){
+    const q = query(collection(db, 'redemptions'), where('uid', '==', uid), orderBy('createdAt', 'desc'));
+    unsubRequests = onSnapshot(q, (snap) => {
+      myRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderMyRequests();
+    });
+  }
+
+  function reqLabel(type){
+    return { convert_pp_pe:'Conversão PP → PE', patente:'Aquisição de patente', loja:'Compra na loja', outro:'Outro / resgate' }[type] || type;
+  }
+
+  function renderMyRequests(){
+    const list = document.getElementById('req-list');
+    if(myRequests.length === 0){ list.innerHTML = '<div class="empty-hint">Nenhuma solicitação ainda.</div>'; return; }
+    list.innerHTML = '';
+    myRequests.forEach(r => {
+      const card = document.createElement('div');
+      card.className = 'req-card';
+      card.innerHTML = `
+        <div class="req-top">
+          <div>
+            <div class="req-type">${reqLabel(r.type)}</div>
+            <div class="req-char">${escapeHtml(r.charName||'')}</div>
+          </div>
+          <span class="status-badge status-${r.status}">${r.status}</span>
+        </div>
+        <div class="req-amounts">${r.peAmount ? r.peAmount + ' PE &nbsp;' : ''}${r.ppAmount ? r.ppAmount + ' PP' : ''}${r.patenteLabel ? ' — ' + r.patenteLabel : ''}</div>
+        ${r.note ? `<div class="req-note">${escapeHtml(r.note)}</div>` : ''}
+        ${r.staffNote ? `<div class="req-note">Staff: ${escapeHtml(r.staffNote)}</div>` : ''}
+      `;
+      if(r.status === 'pendente'){
+        const actions = document.createElement('div');
+        actions.className = 'req-actions';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn small danger';
+        cancelBtn.textContent = 'Cancelar';
+        cancelBtn.addEventListener('click', async () => {
+          await updateDoc(doc(db, 'redemptions', r.id), { status: 'cancelado' });
+          toast('Solicitação cancelada.');
+        });
+        actions.appendChild(cancelBtn);
+        card.appendChild(actions);
+      }
+      list.appendChild(card);
+    });
+  }
+
+  // ================= STAFF =================
+  function subscribePendingRequests(){
+    const q = query(collection(db, 'redemptions'), where('status', '==', 'pendente'), orderBy('createdAt', 'asc'));
+    unsubPending = onSnapshot(q, (snap) => {
+      renderStaffPending(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }
+
+  function renderStaffPending(list){
+    const el = document.getElementById('staff-pending-list');
+    if(list.length === 0){ el.innerHTML = '<div class="empty-hint">Nenhuma solicitação pendente.</div>'; return; }
+    el.innerHTML = '';
+    list.forEach(r => {
+      const card = document.createElement('div');
+      card.className = 'req-card';
+      card.innerHTML = `
+        <div class="req-top">
+          <div>
+            <div class="req-type">${reqLabel(r.type)}</div>
+            <div class="req-char">${escapeHtml(r.charName||'')} — jogador: ${escapeHtml(r.uid)}</div>
+          </div>
+          <span class="status-badge status-${r.status}">${r.status}</span>
+        </div>
+        <div class="req-amounts">${r.peAmount ? r.peAmount + ' PE &nbsp;' : ''}${r.ppAmount ? r.ppAmount + ' PP' : ''}${r.patenteLabel ? ' — ' + r.patenteLabel : ''}</div>
+        ${r.note ? `<div class="req-note">${escapeHtml(r.note)}</div>` : ''}
+      `;
+      const actions = document.createElement('div');
+      actions.className = 'req-actions';
+      const approveBtn = document.createElement('button');
+      approveBtn.className = 'btn small primary';
+      approveBtn.textContent = 'Aprovar';
+      approveBtn.addEventListener('click', () => resolveRequest(r, 'aprovado'));
+      const denyBtn = document.createElement('button');
+      denyBtn.className = 'btn small danger';
+      denyBtn.textContent = 'Negar';
+      denyBtn.addEventListener('click', () => resolveRequest(r, 'negado'));
+      actions.appendChild(approveBtn); actions.appendChild(denyBtn);
+      card.appendChild(actions);
+      el.appendChild(card);
+    });
+  }
+
+  async function resolveRequest(r, decision){
+    if(!currentUser) return;
+    await runTransaction(db, async (tx) => {
+      const reqRef = doc(db, 'redemptions', r.id);
+      const reqSnap = await tx.get(reqRef);
+      if(!reqSnap.exists() || reqSnap.data().status !== 'pendente') throw new Error('Solicitação já foi resolvida.');
+
+      if(decision === 'aprovado'){
+        const playerRef = doc(db, 'players', r.uid);
+        const charRef = doc(db, 'players', r.uid, 'characters', r.charId);
+        const playerSnap = await tx.get(playerRef);
+        const charSnap = await tx.get(charRef);
+        if(!playerSnap.exists() || !charSnap.exists()) throw new Error('Jogador ou personagem não encontrado.');
+
+        const charUpdates = {};
+        const playerUpdates = {};
+
+        if(r.type === 'convert_pp_pe'){
+          const newPp = (playerSnap.data().ppTotal||0) - r.ppAmount;
+          if(newPp < 0) throw new Error('PP insuficiente.');
+          playerUpdates.ppTotal = newPp;
+          charUpdates.peTotal = increment(r.peAmount);
+          charUpdates.ppConversionsUsed = increment(r.peAmount);
+        } else if(r.type === 'patente'){
+          const newPp = (playerSnap.data().ppTotal||0) - r.ppAmount;
+          if(newPp < 0) throw new Error('PP insuficiente.');
+          playerUpdates.ppTotal = newPp;
+          charUpdates.patente = r.patenteKey;
+        } else if(r.type === 'loja'){
+          const newPp = (playerSnap.data().ppTotal||0) - r.ppAmount;
+          if(newPp < 0) throw new Error('PP insuficiente.');
+          playerUpdates.ppTotal = newPp;
+        } else {
+          if(r.peAmount) charUpdates.peTotal = increment(r.peAmount);
+          if(r.ppAmount) playerUpdates.ppTotal = increment(r.ppAmount);
+        }
+
+        if(Object.keys(playerUpdates).length) tx.update(playerRef, playerUpdates);
+        if(Object.keys(charUpdates).length) tx.update(charRef, charUpdates);
+      }
+
+      tx.update(reqRef, { status: decision, reviewedBy: currentUser.uid, reviewedAt: serverTimestamp() });
+    }).then(() => {
+      toast(decision === 'aprovado' ? 'Solicitação aprovada e aplicada.' : 'Solicitação negada.');
+    }).catch(e => toast('Erro: ' + e.message, true));
+  }
+
+  function subscribeAllPlayers(){
+    unsubAllPlayers = onSnapshot(collection(db, 'players'), async (snap) => {
+      const players = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderStaffPlayerSelects(players);
+      renderStaffPlayersTable(players);
+    });
+  }
+
+  function renderStaffPlayerSelects(players){
+    const sel = document.getElementById('grant-player-select');
+    const prev = sel.value;
+    sel.innerHTML = players.map(p => `<option value="${p.id}">${escapeHtml(p.displayName||p.email||p.id)}</option>`).join('');
+    if(prev) sel.value = prev;
+    sel.onchange = () => loadCharsForGrant(sel.value);
+    if(players.length) loadCharsForGrant(sel.value || players[0].id);
+  }
+
+  async function loadCharsForGrant(playerUid){
+    const sel = document.getElementById('grant-char-select');
+    sel.innerHTML = '<option>Carregando...</option>';
+    const snap = await getDocs(collection(db, 'players', playerUid, 'characters'));
+    sel.innerHTML = snap.docs.map(d => `<option value="${d.id}">${escapeHtml(d.data().name)}</option>`).join('') || '<option value="">Sem personagens</option>';
+  }
+
+  document.getElementById('grant-submit-btn').addEventListener('click', async () => {
+    const playerUid = document.getElementById('grant-player-select').value;
+    const charId = document.getElementById('grant-char-select').value;
+    const pe = parseInt(document.getElementById('grant-pe').value || '0', 10);
+    const pp = parseInt(document.getElementById('grant-pp').value || '0', 10);
+    const reason = document.getElementById('grant-reason').value.trim();
+    if(!playerUid || (!pe && !pp)){ toast('Informe PE e/ou PP para conceder.', true); return; }
+
+    const countsSession = document.getElementById('grant-counts-session').checked;
+    try{
+      if(pp) await updateDoc(doc(db, 'players', playerUid), { ppTotal: increment(pp) });
+      if(charId && (pe || countsSession)){
+        const charUpdates = {};
+        if(pe) charUpdates.peTotal = increment(pe);
+        if(countsSession) charUpdates.sessionsCount = increment(1);
+        await updateDoc(doc(db, 'players', playerUid, 'characters', charId), charUpdates);
+      }
+      await addDoc(collection(db, 'grants'), {
+        uid: playerUid, charId: charId||null, peAmount: pe, ppAmount: pp, reason, countsSession,
+        grantedBy: currentUser.uid, grantedAt: serverTimestamp()
+      });
+      document.getElementById('grant-pe').value = 0;
+      document.getElementById('grant-pp').value = 0;
+      document.getElementById('grant-reason').value = '';
+      document.getElementById('grant-counts-session').checked = false;
+      toast('Concessão aplicada.');
+    }catch(e){ toast('Erro: ' + e.message, true); }
+  });
+
+  function renderStaffPlayersTable(players){
+    const el = document.getElementById('staff-players-table');
+    if(players.length === 0){ el.innerHTML = '<div class="empty-hint">Nenhum jogador cadastrado ainda.</div>'; return; }
+    let html = '<table><thead><tr><th>Jogador</th><th>PP total</th></tr></thead><tbody>';
+    players.forEach(p => {
+      html += `<tr><td>${escapeHtml(p.displayName||p.email||p.id)}</td><td>${p.ppTotal||0}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  // ================= SESSION COUNT (staff também pode registrar sessão jogada) =================
+  // Nota: incrementar sessionsCount de um personagem destrava +1 conversão de PP->PE
+  // e +1 PE de narração possíveis. Isso é feito manualmente pela staff junto da
+  // concessão de PE/PP daquela sessão (ver painel "Conceder PE / PP manualmente").
+
+  // ================= DRAWERS =================
+  function openDrawer(id){
+    document.getElementById(id).classList.add('open');
+    document.getElementById(id + '-backdrop').classList.add('open');
+  }
+  function closeDrawer(id){
+    document.getElementById(id).classList.remove('open');
+    document.getElementById(id + '-backdrop').classList.remove('open');
+  }
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => closeDrawer(btn.dataset.close));
+  });
+  ['char-drawer','detail-drawer','req-drawer'].forEach(id => {
+    document.getElementById(id + '-backdrop').addEventListener('click', () => closeDrawer(id));
+  });
+
+  function escapeHtml(str){
+    return String(str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+</script>
+</body>
+</html>
