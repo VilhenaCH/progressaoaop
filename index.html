@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -271,6 +272,44 @@
 
   .uid-box{ font-size:0.68rem; color:var(--ink-dim); background:var(--bg-1); border:1px solid var(--line); border-radius:var(--r-xs); padding:0.5rem 0.6rem; word-break:break-all; margin-top:0.4rem; }
 
+  /* ---------- ranking ---------- */
+  @keyframes rankSlideIn{ from{opacity:0; transform:translateX(-14px);} to{opacity:1; transform:translateX(0);} }
+  @keyframes rankFlashUp{ 0%{ background:rgba(127,185,138,0.28); } 100%{ background:transparent; } }
+  @keyframes rankFlashDown{ 0%{ background:rgba(211,87,42,0.24); } 100%{ background:transparent; } }
+  @keyframes crownBob{ 0%,100%{ transform:translateY(0) rotate(-4deg); } 50%{ transform:translateY(-3px) rotate(4deg); } }
+  .rank-list{ display:flex; flex-direction:column; gap:0.55rem; margin-top:0.9rem; }
+  .rank-item{
+    display:flex; align-items:center; gap:0.8rem; background:var(--bg-1); border:1px solid var(--line);
+    border-radius:var(--r-md); padding:0.65rem 0.9rem; position:relative; overflow:hidden;
+    animation:rankSlideIn .35s var(--ease-soft) backwards; cursor:default;
+    transition:border-color .2s var(--ease-soft), transform .2s var(--ease-soft);
+  }
+  .rank-item:hover{ border-color:var(--ice-300); transform:translateX(2px); }
+  .rank-item.rank-1{ border-color:var(--warn); box-shadow:0 0 0 1px rgba(217,192,127,0.25); }
+  .rank-item.rank-2{ border-color:var(--ice-300); }
+  .rank-item.rank-3{ border-color:#9a6a45; }
+  .rank-item.flash-up{ animation:rankSlideIn .35s var(--ease-soft) backwards, rankFlashUp 1.1s ease-out; }
+  .rank-item.flash-down{ animation:rankSlideIn .35s var(--ease-soft) backwards, rankFlashDown 1.1s ease-out; }
+  .rank-pos{
+    width:2.1rem; flex-shrink:0; text-align:center; font-family:'Oswald',sans-serif; font-size:1.05rem; color:var(--ink-dim);
+  }
+  .rank-item.rank-1 .rank-pos{ color:var(--warn); }
+  .rank-item.rank-2 .rank-pos{ color:var(--ice-300); }
+  .rank-item.rank-3 .rank-pos{ color:#c98a5c; }
+  .rank-crown{ display:inline-block; margin-right:0.15rem; animation:crownBob 2.4s ease-in-out infinite; }
+  .rank-avatar{
+    width:36px; height:36px; border-radius:50%; background:var(--bg-2) center/cover no-repeat;
+    border:1px solid var(--ice-500); flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Oswald',sans-serif; color:var(--frost); font-size:0.85rem;
+  }
+  .rank-main{ flex:1; min-width:0; }
+  .rank-name{ font-size:0.82rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rank-bar-wrap{ height:5px; border-radius:var(--r-pill); background:var(--bg-2); overflow:hidden; margin-top:0.35rem; }
+  .rank-bar{ height:100%; background:linear-gradient(90deg, var(--ice-500), var(--frost)); border-radius:var(--r-pill); width:0%; transition:width .8s var(--ease-soft); }
+  .rank-item.rank-1 .rank-bar{ background:linear-gradient(90deg, #7a6a3a, var(--warn)); }
+  .rank-pp{ font-family:'Oswald',sans-serif; font-size:1rem; color:var(--frost); flex-shrink:0; text-align:right; min-width:64px; }
+  .rank-pp .unit{ font-size:0.55rem; color:var(--ink-dim); text-transform:uppercase; display:block; letter-spacing:0.08em; }
+
   table{ width:100%; border-collapse:collapse; font-size:0.72rem; }
   thead th{ text-align:left; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em; font-size:0.58rem; border-bottom:1px solid var(--line); padding:0.4rem 0.5rem; }
   tbody td{ padding:0.5rem; border-bottom:1px solid var(--line); vertical-align:top; }
@@ -297,6 +336,7 @@
 <nav id="navbar" style="display:none;">
   <button class="tab-btn" data-view="personagens">Personagens</button>
   <button class="tab-btn" data-view="economia">Economia</button>
+  <button class="tab-btn" data-view="ranking">Ranking</button>
   <button class="tab-btn" data-view="resgates">Resgates</button>
   <button class="tab-btn staff" data-view="staff" id="staff-tab" style="display:none;">Staff</button>
 </nav>
@@ -326,6 +366,12 @@
       <div class="section-label">Seus personagens</div>
       <div id="char-grid" class="char-grid"></div>
     </div>
+    <div class="panel">
+      <div class="section-label">Referência</div>
+      <h2>Trilha de progressão</h2>
+      <div class="field-hint">PE necessário para subir de nível e patentes desbloqueadas ao longo da jornada.</div>
+      <div id="trilha-table" style="margin-top:0.7rem;"></div>
+    </div>
   </section>
 
   <!-- ECONOMIA -->
@@ -337,6 +383,16 @@
       <div class="field-hint" style="margin-top:0.9rem;">
         O teto de gasto é recalculado a cada operação: PP total ÷ personagens ativos (personagens em Evolução Máxima da Temporada não contam nesse divisor).
       </div>
+    </div>
+  </section>
+
+  <!-- RANKING -->
+  <section class="view" id="view-ranking">
+    <div class="panel">
+      <div class="section-label">Prestígio da mesa</div>
+      <h2>Ranking de Prestígio (PP)</h2>
+      <div class="field-hint">Classificação de todos os agentes por Pontos de Prestígio acumulados.</div>
+      <div id="ranking-list" class="rank-list"></div>
     </div>
   </section>
 
@@ -466,6 +522,9 @@
     <button class="drawer-close" data-close="profile-drawer">✕</button>
   </div>
   <div class="drawer-body">
+    <label>Nome exibido</label>
+    <input type="text" id="my-displayname-input" placeholder="Nome que aparece pra todos">
+    <div class="field-hint">Esse é o nome mostrado no ranking, na sua apresentação e para a staff. Pode ser diferente do seu nome de conta Google.</div>
     <label>Texto de apresentação</label>
     <textarea id="my-bio-input" placeholder="Fale um pouco sobre você como jogador: estilo de jogo, disponibilidade, o que gosta de interpretar, etc." style="min-height:140px;"></textarea>
     <div class="field-hint">Esse texto é visível para a staff e ajuda a te conhecer melhor como jogador.</div>
@@ -606,6 +665,8 @@
   let unsubRequests = null;
   let unsubPending = null;
   let unsubAllPlayers = null;
+  let unsubRanking = null;
+  let prevRankOrder = [];
 
   // ================= AUTH =================
   document.getElementById('login-btn').addEventListener('click', async () => {
@@ -627,6 +688,7 @@
     renderAccountBox(user);
     subscribeCharacters(user.uid);
     subscribeMyRequests(user.uid);
+    subscribeRanking();
 
     const admin = isAdmin(user.uid);
     document.getElementById('staff-tab').style.display = admin ? 'inline-block' : 'none';
@@ -643,6 +705,7 @@
     if(unsubRequests) unsubRequests();
     if(unsubPending) unsubPending();
     if(unsubAllPlayers) unsubAllPlayers();
+    if(unsubRanking) unsubRanking();
   }
 
   function renderLoggedOut(){
@@ -650,7 +713,83 @@
     document.getElementById('navbar').style.display = 'none';
     document.getElementById('account-box').innerHTML = '';
     myCharacters = []; myRequests = []; myPlayerDoc = null;
+    prevRankOrder = [];
   }
+
+  // ================= RANKING (visível a todos os agentes) =================
+  function subscribeRanking(){
+    const q = query(collection(db, 'players'), orderBy('ppTotal', 'desc'));
+    unsubRanking = onSnapshot(q, (snap) => {
+      const players = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderRanking(players);
+    }, (err) => {
+      // Se as regras do Firestore ainda não liberarem leitura de todos os
+      // jogadores para não-staff, o ranking simplesmente fica vazio aqui.
+      console.warn('Ranking indisponível:', err.message);
+    });
+  }
+
+  function renderRanking(players){
+    const el = document.getElementById('ranking-list');
+    if(!el) return;
+    if(players.length === 0){ el.innerHTML = '<div class="empty-hint">Ninguém pontuou ainda.</div>'; return; }
+    const maxPp = Math.max(1, ...players.map(p => p.ppTotal || 0));
+    const newOrder = players.map(p => p.id);
+
+    el.innerHTML = '';
+    players.forEach((p, idx) => {
+      const rank = idx + 1;
+      const pp = p.ppTotal || 0;
+      const pct = Math.max(2, Math.round((pp / maxPp) * 100));
+      const prevIdx = prevRankOrder.indexOf(p.id);
+      let flashClass = '';
+      if(prevRankOrder.length && prevIdx !== -1){
+        if(prevIdx > idx) flashClass = ' flash-up';
+        else if(prevIdx < idx) flashClass = ' flash-down';
+      }
+      const item = document.createElement('div');
+      item.className = `rank-item rank-${rank}${flashClass}`;
+      item.style.animationDelay = `${Math.min(idx * 45, 500)}ms`;
+      const avatarStyle = p.photoURL ? `style="background-image:url('${escapeHtml(p.photoURL)}')"` : '';
+      const avatarInitial = p.photoURL ? '' : escapeHtml((p.displayName || p.email || '?').slice(0,1).toUpperCase());
+      const crown = rank === 1 ? '<span class="rank-crown">👑</span>' : '';
+      item.innerHTML = `
+        <div class="rank-pos">${crown}${rank}º</div>
+        <div class="rank-avatar" ${avatarStyle}>${avatarInitial}</div>
+        <div class="rank-main">
+          <div class="rank-name">${escapeHtml(p.displayName || p.email || 'Agente')}</div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%"></div></div>
+        </div>
+        <div class="rank-pp">${pp}<span class="unit">PP</span></div>
+      `;
+      el.appendChild(item);
+    });
+    prevRankOrder = newOrder;
+  }
+
+  // ================= TRILHA DE PROGRESSÃO (tabela de referência estática) =================
+  function renderTrilhaTable(){
+    const el = document.getElementById('trilha-table');
+    if(!el) return;
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>Nível</th><th>PE p/ subir</th><th>PE acumulado</th><th>Patente desbloqueada</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    for(let level = 1; level <= 20; level++){
+      const pat = PATENTES.find(p => p.minLevel === level);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${level}</td>
+        <td>${level === 1 ? '—' : peCostForLevelFixed(level)}</td>
+        <td>${cumulativePeForLevel(level)}</td>
+        <td>${pat ? `${escapeHtml(pat.label)}${pat.cost ? ' (' + pat.cost + ' PP)' : ''}` : '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    el.innerHTML = '';
+    el.appendChild(table);
+  }
+  renderTrilhaTable();
 
   function renderAccountBox(user){
     const box = document.getElementById('account-box');
@@ -690,6 +829,7 @@
 
   function openMyProfileDrawer(){
     document.getElementById('my-bio-input').value = (myPlayerDoc && myPlayerDoc.bio) ? myPlayerDoc.bio : '';
+    document.getElementById('my-displayname-input').value = (myPlayerDoc && myPlayerDoc.displayName) ? myPlayerDoc.displayName : (currentUser ? (currentUser.displayName || '') : '');
     openDrawer('profile-drawer');
   }
 
@@ -698,8 +838,10 @@
   document.getElementById('save-profile-btn').addEventListener('click', async () => {
     if(!currentUser) return;
     const bio = document.getElementById('my-bio-input').value.trim();
+    const displayName = document.getElementById('my-displayname-input').value.trim();
+    if(!displayName){ toast('O nome exibido não pode ficar em branco.', true); return; }
     try{
-      await updateDoc(doc(db, 'players', currentUser.uid), { bio });
+      await updateDoc(doc(db, 'players', currentUser.uid), { bio, displayName });
       closeDrawer('profile-drawer');
       toast('Apresentação salva.');
     }catch(e){ toast('Erro: ' + e.message, true); }
@@ -711,16 +853,23 @@
     if(!snap.exists()){
       await setDoc(ref, {
         displayName: user.displayName || '',
+        googleDisplayName: user.displayName || '',
         email: user.email || '',
         photoURL: user.photoURL || '',
         ppTotal: 0,
         createdAt: serverTimestamp()
       });
     } else {
-      // mantém nome/foto atualizados
-      await updateDoc(ref, { displayName: user.displayName || '', photoURL: user.photoURL || '' });
+      // mantém foto e o nome de conta Google atualizados, mas preserva o
+      // nome de exibição escolhido pelo jogador (não sobrescreve displayName)
+      await updateDoc(ref, { googleDisplayName: user.displayName || '', photoURL: user.photoURL || '' });
     }
-    onSnapshot(ref, (s) => { myPlayerDoc = s.data(); renderEconomy(); renderCharGrid(); renderMyBio(); });
+    onSnapshot(ref, (s) => {
+      myPlayerDoc = s.data();
+      renderEconomy(); renderCharGrid(); renderMyBio();
+      const nameEl = document.querySelector('#account-box .user-chip .name');
+      if(nameEl) nameEl.textContent = myPlayerDoc.displayName || user.displayName || user.email || 'Agente';
+    });
   }
 
   // ================= NAV =================
@@ -1253,9 +1402,24 @@
     const bio = (player.bio || '').trim();
     body.innerHTML = `
       <div class="stat-grid"><div class="stat-box"><div class="label">Prestígio total (PP)</div><div class="value">${player.ppTotal||0}</div></div></div>
+      <div class="section-label" style="margin-top:1rem;">Editar Prestígio (staff)</div>
+      <label>Definir PP total diretamente</label>
+      <input type="number" id="staff-edit-pp-input" min="0" value="${player.ppTotal||0}">
+      <div class="field-hint">Isso define o valor absoluto de PP do jogador (diferente do painel "Aplicar ajuste", que soma/subtrai).</div>
+      <div class="form-actions">
+        <button class="btn small primary" id="staff-edit-pp-save-btn">Salvar PP</button>
+      </div>
       <div class="section-label" style="margin-top:1rem;">Apresentação do jogador</div>
       <div class="profile-card">${bio ? `<div class="bio-text">${escapeHtml(bio)}</div>` : '<div class="bio-text bio-empty">Este jogador ainda não escreveu uma apresentação.</div>'}</div>
     `;
+    document.getElementById('staff-edit-pp-save-btn').addEventListener('click', async () => {
+      const val = parseInt(document.getElementById('staff-edit-pp-input').value || '0', 10);
+      if(isNaN(val) || val < 0){ toast('Informe um valor de PP válido.', true); return; }
+      try{
+        await updateDoc(doc(db, 'players', player.id), { ppTotal: val });
+        toast('PP do jogador atualizado.');
+      }catch(e){ toast('Erro: ' + e.message, true); }
+    });
 
     if(chars.length === 0){
       body.innerHTML += '<div class="empty-hint" style="margin-top:0.9rem;">Este jogador ainda não cadastrou personagens.</div>';
@@ -1340,7 +1504,20 @@
       </div>
       <div class="section-label" style="margin-top:1.1rem;">Anotações</div>
       <div class="profile-card">${c.notes ? `<div class="bio-text">${escapeHtml(c.notes)}</div>` : '<div class="bio-text bio-empty">Sem anotações.</div>'}</div>
+
+      <div class="section-label" style="margin-top:1.4rem;">Editar diretamente (staff)</div>
+      <label>Definir PE total</label>
+      <input type="number" id="staff-edit-pe-input" min="0" value="${c.peTotal||0}">
+      <label>Patente</label>
+      <select id="staff-edit-patente-select">
+        ${PATENTES.map(p => `<option value="${p.key}" ${(c.patente||'recruta') === p.key ? 'selected' : ''}>${escapeHtml(p.label)}</option>`).join('')}
+      </select>
+      <div class="field-hint">Define o PE e a patente diretamente, sem passar pelo fluxo de solicitação/aprovação.</div>
       <div class="form-actions">
+        <button class="btn small primary" id="staff-edit-char-save-btn">Salvar PE e patente</button>
+      </div>
+
+      <div class="form-actions" style="margin-top:0.5rem;">
         <button class="btn small primary" id="staff-grant-from-profile-btn">Usar no painel de concessão</button>
       </div>
       <div class="section-label" style="margin-top:1.4rem;">Zona de risco</div>
@@ -1348,6 +1525,16 @@
         <button class="btn small danger" id="staff-delete-char-btn">Excluir personagem</button>
       </div>
     `;
+    document.getElementById('staff-edit-char-save-btn').addEventListener('click', async () => {
+      const peVal = parseInt(document.getElementById('staff-edit-pe-input').value || '0', 10);
+      const patenteKey = document.getElementById('staff-edit-patente-select').value;
+      if(isNaN(peVal) || peVal < 0){ toast('Informe um valor de PE válido.', true); return; }
+      try{
+        await updateDoc(doc(db, 'players', player.id, 'characters', c.id), { peTotal: peVal, patente: patenteKey });
+        toast('PE e patente atualizados.');
+        openStaffCharProfile(player, { ...c, peTotal: peVal, patente: patenteKey });
+      }catch(e){ toast('Erro: ' + e.message, true); }
+    });
     document.getElementById('staff-grant-from-profile-btn').addEventListener('click', () => {
       closeDrawer('char-profile-drawer');
       switchView('staff');
