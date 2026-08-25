@@ -1,10 +1,23 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Nexo — Terminal de Progressão</title>
+<meta name="theme-color" content="#0b1014" id="meta-theme-color">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nexo">
+<script>
+  // aplica o tema salvo antes da 1ª pintura, pra não piscar o tema errado
+  (function(){
+    try{
+      var t = localStorage.getItem('nexo-theme');
+      if(t) document.documentElement.setAttribute('data-theme', t);
+    }catch(e){}
+  })();
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Oswald:wght@400;500;600;700&display=swap');
 
@@ -34,8 +47,30 @@
     --tap-min:44px;
   }
 
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;min-height:100%;}
+  /* ---------- tema claro ---------- */
+  html[data-theme="claro"]{
+    --ice-050:#e7f0f6; --ice-100:#cfe0ea; --ice-300:#3d7ea6; --ice-500:#2f6484;
+    --frost:#1f8fae; --hazard:#c14a1e; --safe:#3f8a4c; --warn:#a9821f;
+    --bg-0:#f4f6f8; --bg-1:#ffffff; --bg-2:#eef1f4;
+    --line:#d8dee3; --ink:#1b232b; --ink-dim:#5c6873;
+    --hud-bg:rgba(255,255,255,0.72); --hud-bg-active:rgba(255,255,255,0.92); --hud-line:rgba(216,222,227,0.9);
+    --shadow-1:0 2px 8px rgba(20,30,40,0.08);
+    --shadow-2:0 10px 28px rgba(20,30,40,0.12), 0 2px 8px rgba(20,30,40,0.08);
+  }
+
+  /* ---------- tema rosa claro ---------- */
+  html[data-theme="rosa"]{
+    --ice-050:#fbe6ee; --ice-100:#f3c9dc; --ice-300:#c9668f; --ice-500:#b8557f;
+    --frost:#e0759e; --hazard:#c2492f; --safe:#4a9a5c; --warn:#b98a2a;
+    --bg-0:#fdf1f6; --bg-1:#fffafc; --bg-2:#fbe6ee;
+    --line:#f0cddb; --ink:#3a1f2b; --ink-dim:#8a6575;
+    --hud-bg:rgba(255,250,252,0.72); --hud-bg-active:rgba(255,250,252,0.92); --hud-line:rgba(240,205,219,0.9);
+    --shadow-1:0 2px 8px rgba(184,85,127,0.1);
+    --shadow-2:0 10px 28px rgba(184,85,127,0.16), 0 2px 8px rgba(184,85,127,0.1);
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;min-height:100%; overscroll-behavior-y:none;}
   body{
     background:
       radial-gradient(ellipse at 20% -10%, rgba(143,215,232,0.06), transparent 45%),
@@ -44,6 +79,7 @@
     color:var(--ink);
     font-family:'Space Mono', monospace;
     min-height:100vh;
+    transition:background-color .2s var(--ease-soft), color .2s var(--ease-soft);
   }
   h1,h2,h3,.display{font-family:'Oswald',sans-serif; letter-spacing:0.02em;}
   a{color:inherit;}
@@ -73,6 +109,17 @@
   .brand h1 span{ color:var(--frost); }
 
   #account-box{ display:flex; align-items:center; gap:0.7rem; }
+
+  /* ---------- seletor de tema ---------- */
+  #theme-switcher{ display:flex; align-items:center; gap:0.35rem; }
+  .theme-btn{
+    width:2rem; height:2rem; border-radius:50%; border:1px solid var(--line); background:var(--bg-1);
+    cursor:pointer; font-size:0.85rem; display:flex; align-items:center; justify-content:center;
+    color:var(--ink-dim); flex-shrink:0; padding:0;
+    transition:border-color 0.15s var(--ease-soft), transform 0.15s var(--ease-soft), box-shadow 0.15s var(--ease-soft);
+  }
+  .theme-btn:hover{ border-color:var(--ice-300); transform:translateY(-1px); }
+  .theme-btn.active{ border-color:var(--frost); box-shadow:0 0 0 2px rgba(143,215,232,0.18); }
   .btn{
     background:rgba(22,31,40,0.6); border:1px solid var(--line); border-radius:var(--r-sm); color:var(--ink-dim);
     font-family:'Space Mono',monospace; font-size:0.7rem; min-height:2.3rem; padding:0.5rem 0.9rem; cursor:pointer;
@@ -280,7 +327,7 @@
   .rank-item{
     display:flex; align-items:center; gap:0.8rem; background:var(--bg-1); border:1px solid var(--line);
     border-radius:var(--r-md); padding:0.65rem 0.9rem; position:relative; overflow:hidden;
-    animation:rankSlideIn .35s var(--ease-soft) backwards; cursor:default;
+    animation:rankSlideIn .35s var(--ease-soft) backwards; cursor:pointer;
     transition:border-color .2s var(--ease-soft), transform .2s var(--ease-soft);
   }
   .rank-item:hover{ border-color:var(--ice-300); transform:translateX(2px); }
@@ -314,11 +361,33 @@
   tbody td{ padding:0.5rem; border-bottom:1px solid var(--line); vertical-align:top; }
   tbody tr:hover{ background:var(--bg-1); }
 
-  @media (max-width:640px){
-    #topbar{ padding:0.7rem 0.9rem; }
-    #navbar{ padding:0.6rem 0.9rem; top:56px; overflow-x:auto; flex-wrap:nowrap; }
+  /* ---------- barra de navegação inferior (estilo app, mobile) ---------- */
+  #bottom-nav{
+    display:none; position:fixed; left:0; right:0; bottom:0; z-index:950;
+    background:var(--hud-bg-active); backdrop-filter:blur(10px) saturate(1.1); -webkit-backdrop-filter:blur(10px) saturate(1.1);
+    border-top:1px solid var(--hud-line); gap:0.15rem;
+    padding:0.35rem 0.3rem calc(0.35rem + env(safe-area-inset-bottom));
+  }
+  #bottom-nav.visible{ display:flex; }
+  .bn-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.15rem;
+    color:var(--ink-dim); min-height:var(--tap-min); font-size:0.58rem;
+    text-transform:uppercase; letter-spacing:0.03em;
+    border:none !important; background:none !important; border-radius:var(--r-sm) !important; padding:0.3rem 0.2rem !important;
+  }
+  .bn-btn.active{ color:var(--frost); background:rgba(143,215,232,0.1) !important; }
+  .bn-btn.staff{ color:var(--hazard); }
+  .bn-btn.staff.active{ color:var(--hazard); background:rgba(211,87,42,0.12) !important; }
+  .bn-icon{ font-size:1.2rem; line-height:1; }
+
+  @media (max-width:760px){
+    #topbar{ padding:0.7rem 0.9rem; flex-wrap:wrap; row-gap:0.5rem; }
+    #navbar{ display:none !important; }
     .user-chip .name{ display:none; }
     #stage{ padding:1rem 0.8rem 3rem; }
+    body.app-mode #stage{ padding-bottom:calc(4.6rem + env(safe-area-inset-bottom)); }
+    .theme-btn{ width:1.8rem; height:1.8rem; font-size:0.75rem; }
+    .drawer{ width:100vw; }
   }
 </style>
 </head>
@@ -329,6 +398,11 @@
     <div class="eyebrow">Nexo // Ordo Realitas</div>
     <h1>Terminal de <span>Progressão</span></h1>
   </div>
+  <div id="theme-switcher" role="group" aria-label="Tema">
+    <button class="theme-btn" data-theme="escuro" title="Tema escuro">🌙</button>
+    <button class="theme-btn" data-theme="claro" title="Tema claro">☀️</button>
+    <button class="theme-btn" data-theme="rosa" title="Tema rosa claro">🌸</button>
+  </div>
   <div id="account-box"></div>
 </div>
 
@@ -338,6 +412,14 @@
   <button class="tab-btn" data-view="ranking">Ranking</button>
   <button class="tab-btn" data-view="resgates">Resgates</button>
   <button class="tab-btn staff" data-view="staff" id="staff-tab" style="display:none;">Staff</button>
+</nav>
+
+<nav id="bottom-nav">
+  <button class="tab-btn bn-btn" data-view="personagens"><span class="bn-icon">🗂️</span><span>Fichas</span></button>
+  <button class="tab-btn bn-btn" data-view="economia"><span class="bn-icon">💰</span><span>Economia</span></button>
+  <button class="tab-btn bn-btn" data-view="ranking"><span class="bn-icon">🏆</span><span>Ranking</span></button>
+  <button class="tab-btn bn-btn" data-view="resgates"><span class="bn-icon">🎁</span><span>Resgates</span></button>
+  <button class="tab-btn bn-btn staff" data-view="staff" id="staff-tab-mobile" style="display:none;"><span class="bn-icon">🛡️</span><span>Staff</span></button>
 </nav>
 
 <div id="stage">
@@ -390,7 +472,7 @@
     <div class="panel">
       <div class="section-label">Prestígio da mesa</div>
       <h2>Ranking de Prestígio (PP)</h2>
-      <div class="field-hint">Classificação de todos os agentes por Pontos de Prestígio acumulados.</div>
+      <div class="field-hint">Classificação de todos os agentes por Pontos de Prestígio acumulados. Toque em um agente para ver o perfil e os personagens dele.</div>
       <div id="ranking-list" class="rank-list"></div>
     </div>
   </section>
@@ -530,6 +612,9 @@
     <label>Nome exibido</label>
     <input type="text" id="my-displayname-input" placeholder="Nome que aparece pra todos">
     <div class="field-hint">Esse é o nome mostrado no ranking, na sua apresentação e para a staff. Pode ser diferente do seu nome de conta Google.</div>
+    <label>Data de aniversário</label>
+    <input type="date" id="my-birthday-input">
+    <div class="field-hint">Opcional. Fica visível para os outros jogadores no seu perfil (inclusive pelo ranking).</div>
     <label>Texto de apresentação</label>
     <textarea id="my-bio-input" placeholder="Fale um pouco sobre você como jogador: estilo de jogo, disponibilidade, o que gosta de interpretar, etc." style="min-height:140px;"></textarea>
     <div class="field-hint">Esse texto é visível para a staff e ajuda a te conhecer melhor como jogador.</div>
@@ -550,6 +635,19 @@
     <button class="drawer-close" data-close="char-profile-drawer">✕</button>
   </div>
   <div class="drawer-body" id="char-profile-body"></div>
+</div>
+
+<!-- drawer: perfil público de outro jogador (via ranking) -->
+<div class="backdrop" id="player-view-drawer-backdrop"></div>
+<div class="drawer" id="player-view-drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="eyebrow">Perfil de agente</div>
+      <h2 id="player-view-name">—</h2>
+    </div>
+    <button class="drawer-close" data-close="player-view-drawer">✕</button>
+  </div>
+  <div class="drawer-body" id="player-view-body"></div>
 </div>
 
 <div id="toast"></div>
@@ -694,6 +792,53 @@
   let unsubAllPlayers = null;
   let unsubRanking = null;
   let prevRankOrder = [];
+  let staffSubsActive = false;
+
+  // ================= TEMA =================
+  const THEME_KEY = 'nexo-theme';
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+    const meta = document.getElementById('meta-theme-color');
+    if(meta){
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-0').trim();
+      if(bg) meta.setAttribute('content', bg);
+    }
+    try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
+  }
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+  });
+  applyTheme((function(){ try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; } })() || 'escuro');
+
+  // ================= ACESSO DE STAFF (admins fixos + isStaff concedido pelo painel) =================
+  function updateStaffAccess(){
+    const admin = !!currentUser && (isAdmin(currentUser.uid) || (myPlayerDoc && myPlayerDoc.isStaff === true));
+    const tab = document.getElementById('staff-tab');
+    const tabMobile = document.getElementById('staff-tab-mobile');
+    if(tab) tab.style.display = admin ? 'inline-block' : 'none';
+    if(tabMobile) tabMobile.style.display = admin ? 'flex' : 'none';
+    if(admin && !staffSubsActive){
+      subscribePendingRequests();
+      subscribeAllPlayers();
+      staffSubsActive = true;
+    } else if(!admin && staffSubsActive){
+      if(unsubPending) unsubPending();
+      if(unsubAllPlayers) unsubAllPlayers();
+      staffSubsActive = false;
+      const staffView = document.getElementById('view-staff');
+      if(staffView && staffView.classList.contains('active')) switchView('personagens');
+    }
+  }
+
+  function formatBirthdayLine(birthday){
+    if(!birthday) return '';
+    const parts = String(birthday).split('-');
+    if(parts.length !== 3) return '';
+    const [y, m, d] = parts;
+    if(!y || !m || !d) return '';
+    return `Aniversário: ${d}/${m}/${y}`;
+  }
 
   // ================= AUTH =================
   document.getElementById('login-btn').addEventListener('click', async () => {
@@ -710,6 +855,8 @@
     }
     document.getElementById('login-gate').style.display = 'none';
     document.getElementById('navbar').style.display = 'flex';
+    document.getElementById('bottom-nav').classList.add('visible');
+    document.body.classList.add('app-mode');
 
     await ensurePlayerDoc(user);
     renderAccountBox(user);
@@ -717,14 +864,8 @@
     subscribeMyRequests(user.uid);
     subscribeRanking();
 
-    const admin = isAdmin(user.uid);
-    document.getElementById('staff-tab').style.display = admin ? 'inline-block' : 'none';
-    if(admin){
-      subscribePendingRequests();
-      subscribeAllPlayers();
-    }
-
-    if(!admin) console.info('Seu UID (caso precise virar staff):', user.uid);
+    updateStaffAccess();
+    if(!isAdmin(user.uid)) console.info('Seu UID (caso precise virar staff):', user.uid);
   });
 
   function cleanupSubscriptions(){
@@ -738,9 +879,13 @@
   function renderLoggedOut(){
     document.getElementById('login-gate').style.display = 'flex';
     document.getElementById('navbar').style.display = 'none';
+    document.getElementById('bottom-nav').classList.remove('visible');
+    document.body.classList.remove('app-mode');
+    document.getElementById('staff-tab').style.display = 'none';
+    document.getElementById('staff-tab-mobile').style.display = 'none';
     document.getElementById('account-box').innerHTML = '';
     myCharacters = []; myRequests = []; myPlayerDoc = null;
-    prevRankOrder = [];
+    prevRankOrder = []; staffSubsActive = false;
   }
 
   // ================= RANKING (visível a todos os agentes) =================
@@ -789,9 +934,87 @@
         </div>
         <div class="rank-pp">${pp}<span class="unit">PP</span></div>
       `;
+      item.addEventListener('click', () => openPlayerViewDrawer(p));
       el.appendChild(item);
     });
     prevRankOrder = newOrder;
+  }
+
+  // ================= PERFIL PÚBLICO (visto a partir do ranking) =================
+  async function openPlayerViewDrawer(player){
+    document.getElementById('player-view-name').textContent = player.displayName || player.email || 'Agente';
+    const body = document.getElementById('player-view-body');
+    const bio = (player.bio || '').trim();
+    const birthdayLine = formatBirthdayLine(player.birthday);
+    const avatarStyle = player.photoURL ? `style="background-image:url('${escapeHtml(player.photoURL)}')"` : '';
+    const avatarInitial = player.photoURL ? '' : escapeHtml((player.displayName || player.email || '?').slice(0,1).toUpperCase());
+    body.innerHTML = `
+      <div class="char-avatar-lg" ${avatarStyle}>${avatarInitial}</div>
+      <div class="stat-grid"><div class="stat-box"><div class="label">Prestígio (PP)</div><div class="value">${player.ppTotal || 0}</div></div></div>
+      ${birthdayLine ? `<div class="field-hint" style="text-align:center; margin-top:0.7rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
+      <div class="section-label" style="margin-top:1.1rem;">Apresentação</div>
+      <div class="profile-card">${bio ? `<div class="bio-text">${escapeHtml(bio)}</div>` : '<div class="bio-text bio-empty">Este jogador ainda não escreveu uma apresentação.</div>'}</div>
+      <div class="section-label" style="margin-top:1.1rem;">Personagens</div>
+      <div id="player-view-chars"><div class="empty-hint">Carregando personagens...</div></div>
+    `;
+    openDrawer('player-view-drawer');
+    try{
+      const snap = await getDocs(collection(db, 'players', player.id, 'characters'));
+      const chars = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const wrap = document.getElementById('player-view-chars');
+      if(!wrap) return;
+      if(chars.length === 0){ wrap.innerHTML = '<div class="empty-hint">Nenhum personagem cadastrado.</div>'; return; }
+      wrap.innerHTML = '';
+      chars.forEach(c => {
+        const info = nextLevelInfo(c.peTotal || 0);
+        const pat = patenteAtual(c.patente || 'recruta');
+        const card = document.createElement('div');
+        card.className = 'req-card';
+        card.style.cursor = 'pointer';
+        card.innerHTML = `
+          <div class="req-top">
+            <div>
+              <div class="req-type">${escapeHtml(c.name)}${c.isAlt ? '<span class="alt-badge">Alt</span>' : ''}</div>
+              <div class="req-char">${pat.label} — Nível ${info.level}${c.seasonMaxed ? ' — Evolução Máxima' : ''}${c.isActive===false ? ' — Inativo' : ''}</div>
+            </div>
+          </div>
+        `;
+        card.addEventListener('click', () => openPublicCharProfile(player, c));
+        wrap.appendChild(card);
+      });
+    }catch(e){
+      const wrap = document.getElementById('player-view-chars');
+      if(wrap) wrap.innerHTML = '<div class="empty-hint">Não foi possível carregar os personagens deste jogador. As regras do Firestore podem ainda não permitir a leitura pública dos personagens.</div>';
+      console.warn('Erro ao carregar personagens públicos:', e.message);
+    }
+  }
+
+  function openPublicCharProfile(player, c){
+    document.getElementById('char-profile-name').textContent = c.name || 'Personagem';
+    const info = nextLevelInfo(c.peTotal || 0);
+    const pat = patenteAtual(c.patente || 'recruta');
+    const pct = info.isMax ? 100 : Math.min(100, Math.round((info.progress / info.needed) * 100));
+    const avatarStyle = c.photoURL ? `style="background-image:url('${escapeHtml(c.photoURL)}')"` : '';
+    const avatarInitial = c.photoURL ? '' : escapeHtml((c.name||'?').slice(0,1).toUpperCase());
+    const body = document.getElementById('char-profile-body');
+    body.innerHTML = `
+      <div class="char-avatar-lg" ${avatarStyle}>${avatarInitial}</div>
+      <div style="text-align:center; margin-bottom:0.8rem;">
+        <span class="patente">${pat.label}</span>${c.isAlt ? '<span class="alt-badge">Alt' + (c.altOf ? ' de ' + escapeHtml(c.altOf) : '') + '</span>' : ''}
+      </div>
+      <div class="field-hint" style="text-align:center; margin-bottom:0.6rem;">Jogador: ${escapeHtml(player.displayName||player.email||player.id)}${c.isActive===false ? ' · Inativo' : ''}</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="label">Nível</div><div class="value">${info.level}</div></div>
+        <div class="stat-box"><div class="label">PE total</div><div class="value">${c.peTotal || 0}</div></div>
+        <div class="stat-box"><div class="label">Patente</div><div class="value" style="font-size:0.95rem;">${pat.label}</div></div>
+      </div>
+      <div class="progress-bar" style="margin-top:0.9rem;"><div style="width:${pct}%"></div></div>
+      <div class="pe-line">${info.isMax ? 'Nível máximo atingido' : `${info.progress} / ${info.needed} PE para o nível ${info.level+1}`}</div>
+      <div class="section-label" style="margin-top:1.1rem;">Anotações</div>
+      <div class="profile-card">${c.notes ? `<div class="bio-text">${escapeHtml(c.notes)}</div>` : '<div class="bio-text bio-empty">Sem anotações.</div>'}</div>
+    `;
+    closeDrawer('player-view-drawer');
+    openDrawer('char-profile-drawer');
   }
 
   // ================= TRILHA DE PROGRESSÃO (tabela de referência estática) =================
@@ -850,14 +1073,18 @@
     const box = document.getElementById('my-bio-box');
     if(!box) return;
     const bio = (myPlayerDoc && myPlayerDoc.bio) ? myPlayerDoc.bio.trim() : '';
-    box.innerHTML = bio
-      ? `<div class="bio-text">${escapeHtml(bio)}</div>`
-      : `<div class="bio-text bio-empty">Você ainda não escreveu sua apresentação. Clique em "Editar apresentação" para contar um pouco sobre você.</div>`;
+    const birthdayLine = formatBirthdayLine(myPlayerDoc && myPlayerDoc.birthday);
+    box.innerHTML =
+      (birthdayLine ? `<div class="field-hint" style="margin-bottom:0.5rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : '') +
+      (bio
+        ? `<div class="bio-text">${escapeHtml(bio)}</div>`
+        : `<div class="bio-text bio-empty">Você ainda não escreveu sua apresentação. Clique em "Editar apresentação" para contar um pouco sobre você.</div>`);
   }
 
   function openMyProfileDrawer(){
     document.getElementById('my-bio-input').value = (myPlayerDoc && myPlayerDoc.bio) ? myPlayerDoc.bio : '';
     document.getElementById('my-displayname-input').value = (myPlayerDoc && myPlayerDoc.displayName) ? myPlayerDoc.displayName : (currentUser ? (currentUser.displayName || '') : '');
+    document.getElementById('my-birthday-input').value = (myPlayerDoc && myPlayerDoc.birthday) ? myPlayerDoc.birthday : '';
     const photoURL = (myPlayerDoc && myPlayerDoc.photoURL) ? myPlayerDoc.photoURL : (currentUser ? (currentUser.photoURL || '') : '');
     document.getElementById('my-photo-url').value = photoURL;
     document.getElementById('my-photo-upload-hint').textContent = 'Envie uma imagem (JPG, PNG, etc.). Ela substitui a foto atual.';
@@ -902,9 +1129,10 @@
     const bio = document.getElementById('my-bio-input').value.trim();
     const displayName = document.getElementById('my-displayname-input').value.trim();
     const photoURL = document.getElementById('my-photo-url').value.trim();
+    const birthday = document.getElementById('my-birthday-input').value;
     if(!displayName){ toast('O nome exibido não pode ficar em branco.', true); return; }
     try{
-      await updateDoc(doc(db, 'players', currentUser.uid), { bio, displayName, photoURL });
+      await updateDoc(doc(db, 'players', currentUser.uid), { bio, displayName, photoURL, birthday });
       closeDrawer('profile-drawer');
       toast('Apresentação salva.');
     }catch(e){ toast('Erro: ' + e.message, true); }
@@ -932,6 +1160,7 @@
     onSnapshot(ref, (s) => {
       myPlayerDoc = s.data();
       renderEconomy(); renderCharGrid(); renderMyBio();
+      updateStaffAccess();
       const nameEl = document.querySelector('#account-box .user-chip .name');
       if(nameEl) nameEl.textContent = myPlayerDoc.displayName || user.displayName || user.email || 'Agente';
       const avEl = document.getElementById('account-box-avatar');
@@ -1447,12 +1676,13 @@
     if(players.length === 0){ el.innerHTML = '<div class="empty-hint">Nenhum jogador cadastrado ainda.</div>'; return; }
     el.innerHTML = '';
     const table = document.createElement('table');
-    table.innerHTML = '<thead><tr><th>Jogador</th><th>PP total</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>Jogador</th><th>PP total</th><th>Staff</th></tr></thead>';
     const tbody = document.createElement('tbody');
     players.forEach(p => {
       const tr = document.createElement('tr');
       tr.style.cursor = 'pointer';
-      tr.innerHTML = `<td>${escapeHtml(p.displayName||p.email||p.id)}</td><td>${p.ppTotal||0}</td>`;
+      const staffLabel = isAdmin(p.id) ? 'Sim (fixo)' : (p.isStaff ? 'Sim' : '—');
+      tr.innerHTML = `<td>${escapeHtml(p.displayName||p.email||p.id)}</td><td>${p.ppTotal||0}</td><td>${staffLabel}</td>`;
       tr.addEventListener('click', () => openStaffPlayerDetail(p));
       tbody.appendChild(tr);
     });
@@ -1475,6 +1705,8 @@
     const chars = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     const bio = (player.bio || '').trim();
+    const birthdayLine = formatBirthdayLine(player.birthday);
+    const isFixedAdmin = isAdmin(player.id);
     body.innerHTML = `
       <div class="stat-grid"><div class="stat-box"><div class="label">Prestígio total (PP)</div><div class="value">${player.ppTotal||0}</div></div></div>
       <div class="section-label" style="margin-top:1rem;">Editar Prestígio (staff)</div>
@@ -1484,7 +1716,16 @@
       <div class="form-actions">
         <button class="btn small primary" id="staff-edit-pp-save-btn">Salvar PP</button>
       </div>
+      <div class="section-label" style="margin-top:1rem;">Privilégios de staff</div>
+      ${isFixedAdmin
+        ? `<div class="field-hint">Este jogador é staff fixo (definido no código-fonte) e não pode ser alterado por aqui.</div>`
+        : `<div class="field-hint">Jogadores com privilégios de staff podem aprovar resgates, conceder PE/PP e gerenciar personagens de todos.</div>
+           <div class="form-actions">
+             <button class="btn small ${player.isStaff ? 'danger' : 'primary'}" id="staff-toggle-role-btn">${player.isStaff ? 'Remover privilégios de staff' : 'Conceder privilégios de staff'}</button>
+           </div>`
+      }
       <div class="section-label" style="margin-top:1rem;">Apresentação do jogador</div>
+      ${birthdayLine ? `<div class="field-hint">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
       <div class="profile-card">${bio ? `<div class="bio-text">${escapeHtml(bio)}</div>` : '<div class="bio-text bio-empty">Este jogador ainda não escreveu uma apresentação.</div>'}</div>
     `;
     document.getElementById('staff-edit-pp-save-btn').addEventListener('click', async () => {
@@ -1495,6 +1736,17 @@
         toast('PP do jogador atualizado.');
       }catch(e){ toast('Erro: ' + e.message, true); }
     });
+    const toggleRoleBtn = document.getElementById('staff-toggle-role-btn');
+    if(toggleRoleBtn){
+      toggleRoleBtn.addEventListener('click', async () => {
+        const newVal = !player.isStaff;
+        try{
+          await updateDoc(doc(db, 'players', player.id), { isStaff: newVal });
+          toast(newVal ? 'Privilégios de staff concedidos.' : 'Privilégios de staff removidos.');
+          openStaffPlayerDetail({ ...player, isStaff: newVal });
+        }catch(e){ toast('Erro: ' + e.message, true); }
+      });
+    }
 
     if(chars.length === 0){
       body.innerHTML += '<div class="empty-hint" style="margin-top:0.9rem;">Este jogador ainda não cadastrou personagens.</div>';
@@ -1648,7 +1900,7 @@
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeDrawer(btn.dataset.close));
   });
-  ['char-drawer','detail-drawer','req-drawer','profile-drawer','char-profile-drawer'].forEach(id => {
+  ['char-drawer','detail-drawer','req-drawer','profile-drawer','char-profile-drawer','player-view-drawer'].forEach(id => {
     document.getElementById(id + '-backdrop').addEventListener('click', () => closeDrawer(id));
   });
 
