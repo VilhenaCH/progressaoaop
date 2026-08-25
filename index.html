@@ -128,7 +128,7 @@
   #account-box{ display:flex; align-items:center; gap:0.7rem; }
 
   /* ---------- seletor de tema ---------- */
-  #theme-switcher{ display:flex; align-items:center; gap:0.35rem; }
+  #theme-switcher{ position:relative; display:flex; align-items:center; gap:0.35rem; }
   .theme-btn{
     width:2rem; height:2rem; border-radius:50%; border:1px solid var(--line); background:var(--bg-1);
     cursor:pointer; font-size:0.85rem; display:flex; align-items:center; justify-content:center;
@@ -137,6 +137,20 @@
   }
   .theme-btn:hover{ border-color:var(--ice-300); transform:translateY(-1px); }
   .theme-btn.active{ border-color:var(--frost); box-shadow:0 0 0 2px rgba(143,215,232,0.18); }
+  #theme-toggle-btn[aria-expanded="true"]{ border-color:var(--frost); }
+  .theme-menu{
+    position:absolute; top:calc(100% + 0.5rem); right:0; z-index:950;
+    display:flex; flex-direction:column; gap:0.35rem;
+    padding:0.5rem; border-radius:var(--r-md);
+    background:var(--hud-bg-active); border:1px solid var(--hud-line);
+    box-shadow:var(--shadow-2);
+    backdrop-filter:blur(10px) saturate(1.1); -webkit-backdrop-filter:blur(10px) saturate(1.1);
+    opacity:0; pointer-events:none; transform:translateY(-4px);
+    transition:opacity 0.15s var(--ease-soft), transform 0.15s var(--ease-soft);
+  }
+  .theme-menu.open{ opacity:1; pointer-events:auto; transform:translateY(0); animation:reveal 0.15s var(--ease-soft); }
+  .theme-option{ width:2.3rem; height:2.3rem; }
+  .theme-option .theme-option-label{ display:none; }
   .btn{
     background:var(--bg-2); border:1px solid var(--line); border-radius:var(--r-sm); color:var(--ink);
     font-family:'Space Mono',monospace; font-size:0.7rem; font-weight:700; min-height:2.3rem; padding:0.5rem 0.9rem; cursor:pointer;
@@ -421,7 +435,13 @@
     <h1>Terminal de <span>Progressão</span></h1>
   </div>
   <div id="theme-switcher" role="group" aria-label="Tema">
-    <button class="theme-btn" id="theme-toggle-btn" type="button" title="Alternar tema">🌙</button>
+    <button class="theme-btn" id="theme-toggle-btn" type="button" title="Trocar tema" aria-haspopup="true" aria-expanded="false">🌙</button>
+    <div id="theme-menu" class="theme-menu" role="menu" aria-label="Opções de tema">
+      <button class="theme-btn theme-option" data-theme="escuro" title="Tema escuro" role="menuitem">🌙</button>
+      <button class="theme-btn theme-option" data-theme="claro" title="Tema claro" role="menuitem">☀️</button>
+      <button class="theme-btn theme-option" data-theme="rosa" title="Tema rosa claro" role="menuitem">🌸</button>
+      <button class="theme-btn theme-option" data-theme="rosa-escuro" title="Tema rosa escuro" role="menuitem">💜</button>
+    </div>
   </div>
   <div id="account-box"></div>
 </div>
@@ -833,6 +853,7 @@
       btn.title = m.label;
       btn.setAttribute('aria-label', m.label);
     }
+    document.querySelectorAll('.theme-option').forEach(o => o.classList.toggle('active', o.dataset.theme === theme));
     const meta = document.getElementById('meta-theme-color');
     if(meta){
       const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-0').trim();
@@ -841,12 +862,32 @@
     try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
   }
   const themeToggleBtn = document.getElementById('theme-toggle-btn');
-  if(themeToggleBtn){
-    themeToggleBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') || 'escuro';
-      const idx = THEME_ORDER.indexOf(current);
-      const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
-      applyTheme(next);
+  const themeMenu = document.getElementById('theme-menu');
+  function openThemeMenu(){
+    themeMenu.classList.add('open');
+    themeToggleBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeThemeMenu(){
+    themeMenu.classList.remove('open');
+    themeToggleBtn.setAttribute('aria-expanded', 'false');
+  }
+  if(themeToggleBtn && themeMenu){
+    themeToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      themeMenu.classList.contains('open') ? closeThemeMenu() : openThemeMenu();
+    });
+    document.querySelectorAll('.theme-option').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyTheme(opt.dataset.theme);
+        closeThemeMenu();
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if(!themeMenu.contains(e.target) && e.target !== themeToggleBtn) closeThemeMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape') closeThemeMenu();
     });
   }
   applyTheme((function(){ try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; } })() || 'escuro');
