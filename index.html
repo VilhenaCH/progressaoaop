@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -69,6 +67,23 @@
     --hud-bg:rgba(255,250,252,0.72); --hud-bg-active:rgba(255,250,252,0.92); --hud-line:rgba(240,205,219,0.9);
     --shadow-1:0 2px 8px rgba(184,85,127,0.1);
     --shadow-2:0 10px 28px rgba(184,85,127,0.16), 0 2px 8px rgba(184,85,127,0.1);
+  }
+
+  /* ---------- tema rosa escuro (choque/roxo sobre preto) ---------- */
+  html[data-theme="rosa-escuro"]{
+    --ice-050:#f9d9ec; --ice-100:#e9a9d3; --ice-300:#c85fb0; --ice-500:#9a3f8c;
+    --frost:#ff3ec8; --hazard:#ff5e7a; --safe:#5fd88f; --warn:#e8b13a;
+    --bg-0:#0a0710; --bg-1:#120a1a; --bg-2:#1c0f26;
+    --line:#3a1f3d; --ink:#f3d9ec; --ink-dim:#a081a3;
+    --hud-bg:rgba(10,7,16,0.55); --hud-bg-active:rgba(14,9,20,0.88); --hud-line:rgba(58,31,61,0.75);
+    --shadow-1:0 2px 8px rgba(255,62,200,0.12);
+    --shadow-2:0 10px 28px rgba(168,85,247,0.22), 0 2px 8px rgba(255,62,200,0.14);
+  }
+  html[data-theme="rosa-escuro"] body{
+    background:
+      radial-gradient(ellipse at 15% -10%, rgba(255,62,200,0.12), transparent 45%),
+      radial-gradient(ellipse at 100% 0%, rgba(168,85,247,0.12), transparent 42%),
+      linear-gradient(160deg, #0a0710 0%, #170b22 55%, #0a0710 100%);
   }
 
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -406,9 +421,7 @@
     <h1>Terminal de <span>Progressão</span></h1>
   </div>
   <div id="theme-switcher" role="group" aria-label="Tema">
-    <button class="theme-btn" data-theme="escuro" title="Tema escuro">🌙</button>
-    <button class="theme-btn" data-theme="claro" title="Tema claro">☀️</button>
-    <button class="theme-btn" data-theme="rosa" title="Tema rosa claro">🌸</button>
+    <button class="theme-btn" id="theme-toggle-btn" type="button" title="Alternar tema">🌙</button>
   </div>
   <div id="account-box"></div>
 </div>
@@ -803,9 +816,23 @@
 
   // ================= TEMA =================
   const THEME_KEY = 'nexo-theme';
+  const THEME_ORDER = ['escuro', 'claro', 'rosa', 'rosa-escuro'];
+  const THEME_META = {
+    'escuro': { icon: '🌙', label: 'Tema escuro — toque para trocar' },
+    'claro': { icon: '☀️', label: 'Tema claro — toque para trocar' },
+    'rosa': { icon: '🌸', label: 'Tema rosa claro — toque para trocar' },
+    'rosa-escuro': { icon: '💜', label: 'Tema rosa escuro — toque para trocar' }
+  };
   function applyTheme(theme){
+    if(!THEME_META[theme]) theme = 'escuro';
     document.documentElement.setAttribute('data-theme', theme);
-    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+    const btn = document.getElementById('theme-toggle-btn');
+    if(btn){
+      const m = THEME_META[theme];
+      btn.textContent = m.icon;
+      btn.title = m.label;
+      btn.setAttribute('aria-label', m.label);
+    }
     const meta = document.getElementById('meta-theme-color');
     if(meta){
       const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-0').trim();
@@ -813,9 +840,15 @@
     }
     try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
   }
-  document.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
-  });
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  if(themeToggleBtn){
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'escuro';
+      const idx = THEME_ORDER.indexOf(current);
+      const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+      applyTheme(next);
+    });
+  }
   applyTheme((function(){ try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; } })() || 'escuro');
 
   // ================= ACESSO DE STAFF (admins fixos + isStaff concedido pelo painel) =================
