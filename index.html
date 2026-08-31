@@ -380,12 +380,48 @@
     font-family:'Oswald',sans-serif; color:var(--frost); font-size:0.85rem;
   }
   .rank-main{ flex:1; min-width:0; }
-  .rank-name{ font-size:0.82rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rank-name{ font-size:0.82rem; color:var(--ink); display:flex; align-items:center; gap:0.4rem; min-width:0; }
+  .rank-name-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
   .rank-bar-wrap{ height:5px; border-radius:var(--r-pill); background:var(--bg-2); overflow:hidden; margin-top:0.35rem; }
   .rank-bar{ height:100%; background:linear-gradient(90deg, var(--ice-500), var(--frost)); border-radius:var(--r-pill); width:0%; transition:width .8s var(--ease-soft); }
   .rank-item.rank-1 .rank-bar{ background:linear-gradient(90deg, #7a6a3a, var(--warn)); }
   .rank-pp{ font-family:'Oswald',sans-serif; font-size:1rem; color:var(--frost); flex-shrink:0; text-align:right; min-width:64px; }
   .rank-pp .unit{ font-size:0.55rem; color:var(--ink-dim); text-transform:uppercase; display:block; letter-spacing:0.08em; }
+
+  /* ---------- badges (troféus visuais) ---------- */
+  @keyframes badge-pulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.18); } }
+  @keyframes badge-bounce{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-4px); } }
+  @keyframes badge-spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+  @keyframes badge-float{ 0%,100%{ transform:translateY(0px); } 50%{ transform:translateY(-3px); } }
+  @keyframes badge-shine{ 0%,100%{ filter:brightness(1) drop-shadow(0 0 0 transparent); } 50%{ filter:brightness(1.55) drop-shadow(0 0 5px var(--frost)); } }
+  @keyframes badge-shake{ 0%,100%{ transform:rotate(0deg); } 25%{ transform:rotate(-9deg); } 75%{ transform:rotate(9deg); } }
+  .badge-row{ display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center; }
+  .badge-row.inline{ flex-shrink:0; }
+  .badge-chip{
+    display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+    width:1.9rem; height:1.9rem; border-radius:50%; background:var(--bg-2);
+    border:1px solid var(--line); font-size:1rem; line-height:1; position:relative;
+  }
+  .badge-chip.sm{ width:1.35rem; height:1.35rem; font-size:0.72rem; }
+  .badge-chip.anim-pulse{ animation:badge-pulse 1.6s ease-in-out infinite; }
+  .badge-chip.anim-bounce{ animation:badge-bounce 1.1s ease-in-out infinite; }
+  .badge-chip.anim-spin{ animation:badge-spin 2.4s linear infinite; }
+  .badge-chip.anim-float{ animation:badge-float 2.2s ease-in-out infinite; }
+  .badge-chip.anim-shine{ animation:badge-shine 1.8s ease-in-out infinite; }
+  .badge-chip.anim-shake{ animation:badge-shake 1.4s ease-in-out infinite; }
+  .badge-chip.selectable{ cursor:pointer; transition:border-color .15s var(--ease-soft), transform .15s var(--ease-soft); }
+  .badge-chip.selectable:hover{ transform:translateY(-1px); border-color:var(--ice-300); }
+  .badge-chip.selectable.selected{ border-color:var(--frost); box-shadow:0 0 0 2px rgba(143,215,232,0.22); }
+  .badge-chip.owned-toggle{ opacity:0.35; }
+  .badge-chip.owned-toggle.awarded{ opacity:1; border-color:var(--safe); box-shadow:0 0 0 2px rgba(127,185,138,0.18); }
+  .badge-catalog-item{
+    display:flex; align-items:center; gap:0.7rem; padding:0.55rem 0.65rem;
+    border:1px solid var(--line); border-radius:var(--r-sm); background:var(--bg-1); margin-bottom:0.5rem; flex-wrap:wrap;
+  }
+  .badge-catalog-item .info{ flex:1; min-width:100px; }
+  .badge-catalog-item .name{ font-family:'Oswald',sans-serif; font-size:0.85rem; color:var(--ink); }
+  .badge-catalog-item .meta{ font-size:0.62rem; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.04em; margin-top:0.1rem; }
+  .badge-catalog-item .btn{ padding:0.35rem 0.6rem; font-size:0.68rem; }
 
   table{ width:100%; border-collapse:collapse; font-size:0.72rem; }
   thead th{ text-align:left; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em; font-size:0.58rem; border-bottom:1px solid var(--line); padding:0.4rem 0.5rem; }
@@ -561,6 +597,33 @@
       <div class="section-label">Todos os jogadores</div>
       <div id="staff-players-table"></div>
     </div>
+    <div class="panel">
+      <div class="section-label">Catálogo de badges</div>
+      <h2>Badges (troféus visuais)</h2>
+      <div class="field-hint">Crie badges com emoji e animação. Depois de concedidas (no perfil do jogador), o player pode escolher até 3 pra exibir no ranking.</div>
+      <div id="badge-catalog-list" style="margin-top:0.9rem;"></div>
+      <div class="section-label" style="margin-top:1.2rem;" id="badge-form-label">Nova badge</div>
+      <label>Nome</label>
+      <input type="text" id="badge-name-input" placeholder="Ex: Sobrevivente, Veterano de Mesa, Herói de Barcelos...">
+      <label>Emoji</label>
+      <input type="text" id="badge-emoji-input" placeholder="🏆" maxlength="4">
+      <label>Animação</label>
+      <select id="badge-anim-select">
+        <option value="none">Nenhuma</option>
+        <option value="pulse">Pulso</option>
+        <option value="bounce">Saltitante</option>
+        <option value="spin">Girando</option>
+        <option value="float">Flutuando</option>
+        <option value="shine">Brilho</option>
+        <option value="shake">Balançando</option>
+      </select>
+      <label>Cor de destaque (opcional)</label>
+      <input type="text" id="badge-color-input" placeholder="#8fd7e8">
+      <div class="form-actions">
+        <button class="btn primary" id="badge-save-btn">Criar badge</button>
+        <button class="btn small" id="badge-cancel-edit-btn" style="display:none;">Cancelar edição</button>
+      </div>
+    </div>
   </section>
 
 </div>
@@ -658,6 +721,9 @@
     <label>Texto de apresentação</label>
     <textarea id="my-bio-input" placeholder="Fale um pouco sobre você como jogador: estilo de jogo, disponibilidade, o que gosta de interpretar, etc." style="min-height:140px;"></textarea>
     <div class="field-hint">Esse texto é visível para a staff e ajuda a te conhecer melhor como jogador.</div>
+    <div class="section-label" style="margin-top:1.1rem;">Badges para exibir (máx. 3)</div>
+    <div class="field-hint">Toque em uma badge conquistada pra escolher (ou tirar) do topo do seu nome no ranking.</div>
+    <div class="badge-row" id="my-badges-select" style="margin-top:0.6rem;"></div>
     <div class="form-actions">
       <button class="btn primary" id="save-profile-btn">Salvar apresentação</button>
     </div>
@@ -699,7 +765,7 @@
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, doc, setDoc, getDoc, updateDoc, addDoc, collection, query, where,
-    onSnapshot, serverTimestamp, deleteDoc, orderBy, runTransaction, increment, getDocs
+    onSnapshot, serverTimestamp, deleteDoc, orderBy, runTransaction, increment, getDocs, deleteField
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   // ================= CONFIG =================
@@ -831,8 +897,36 @@
   let unsubPending = null;
   let unsubAllPlayers = null;
   let unsubRanking = null;
+  let unsubBadges = null;
   let prevRankOrder = [];
   let staffSubsActive = false;
+  let allBadges = [];              // catálogo global de badges: [{id, name, emoji, anim, color}]
+  let lastRankingPlayers = [];
+  let selectedDisplayBadges = [];  // seleção em edição no drawer de apresentação (até 3)
+  let editingBadgeId = null;       // badge sendo editada no painel de staff
+
+  // ================= BADGES (catálogo + helpers visuais) =================
+  function subscribeBadges(){
+    if(unsubBadges) return;
+    unsubBadges = onSnapshot(collection(db, 'badges'), (snap) => {
+      allBadges = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderRanking(lastRankingPlayers);
+      if(myPlayerDoc){ renderMyBio(); renderMyBadgeSelect(); }
+      renderBadgeCatalogPanel();
+    }, (err) => console.warn('Badges indisponível:', err.message));
+  }
+  function getBadge(id){ return allBadges.find(b => b.id === id); }
+  function animLabel(anim){
+    const map = { none:'Nenhuma', pulse:'Pulso', bounce:'Saltitante', spin:'Girando', float:'Flutuando', shine:'Brilho', shake:'Balançando' };
+    return map[anim] || 'Nenhuma';
+  }
+  function badgeChipHTML(badge, extraClass=''){
+    if(!badge) return '';
+    const animClass = badge.anim && badge.anim !== 'none' ? ' anim-' + badge.anim : '';
+    const title = escapeHtml(badge.name || '');
+    const colorStyle = badge.color ? ` style="border-color:${escapeHtml(badge.color)}; box-shadow:0 0 7px ${escapeHtml(badge.color)}66;"` : '';
+    return `<span class="badge-chip${animClass}${extraClass}" title="${title}"${colorStyle}>${escapeHtml(badge.emoji || '⭐')}</span>`;
+  }
 
   // ================= TEMA =================
   const THEME_KEY = 'nexo-theme';
@@ -944,6 +1038,7 @@
     subscribeCharacters(user.uid);
     subscribeMyRequests(user.uid);
     subscribeRanking();
+    subscribeBadges();
 
     updateStaffAccess();
     if(!isAdmin(user.uid)) console.info('Seu UID (caso precise virar staff):', user.uid);
@@ -955,6 +1050,8 @@
     if(unsubPending) unsubPending();
     if(unsubAllPlayers) unsubAllPlayers();
     if(unsubRanking) unsubRanking();
+    if(unsubBadges) unsubBadges();
+    unsubBadges = null;
   }
 
   function renderLoggedOut(){
@@ -967,6 +1064,7 @@
     document.getElementById('account-box').innerHTML = '';
     myCharacters = []; myRequests = []; myPlayerDoc = null;
     prevRankOrder = []; staffSubsActive = false;
+    allBadges = []; lastRankingPlayers = []; selectedDisplayBadges = [];
   }
 
   // ================= RANKING (visível a todos os agentes) =================
@@ -974,6 +1072,7 @@
     const q = query(collection(db, 'players'), orderBy('ppTotal', 'desc'));
     unsubRanking = onSnapshot(q, (snap) => {
       const players = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      lastRankingPlayers = players;
       renderRanking(players);
     }, (err) => {
       // Se as regras do Firestore ainda não liberarem leitura de todos os
@@ -1006,11 +1105,15 @@
       const avatarStyle = p.photoURL ? `style="background-image:url('${escapeHtml(p.photoURL)}')"` : '';
       const avatarInitial = p.photoURL ? '' : escapeHtml((p.displayName || p.email || '?').slice(0,1).toUpperCase());
       const crown = rank === 1 ? '<span class="rank-crown">👑</span>' : '';
+      const displayIds = (p.displayBadges || []).filter(id => p.badges && p.badges[id]);
+      const badgesHTML = displayIds.length
+        ? `<span class="badge-row inline">${displayIds.map(id => badgeChipHTML(getBadge(id), ' sm')).join('')}</span>`
+        : '';
       item.innerHTML = `
         <div class="rank-pos">${crown}${rank}º</div>
         <div class="rank-avatar" ${avatarStyle}>${avatarInitial}</div>
         <div class="rank-main">
-          <div class="rank-name">${escapeHtml(p.displayName || p.email || 'Agente')}</div>
+          <div class="rank-name"><span class="rank-name-text">${escapeHtml(p.displayName || p.email || 'Agente')}</span>${badgesHTML}</div>
           <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%"></div></div>
         </div>
         <div class="rank-pp">${pp}<span class="unit">PP</span></div>
@@ -1029,10 +1132,16 @@
     const birthdayLine = formatBirthdayLine(player.birthday);
     const avatarStyle = player.photoURL ? `style="background-image:url('${escapeHtml(player.photoURL)}')"` : '';
     const avatarInitial = player.photoURL ? '' : escapeHtml((player.displayName || player.email || '?').slice(0,1).toUpperCase());
+    const ownedIds = Object.keys(player.badges || {});
+    const badgesSectionHTML = ownedIds.length
+      ? `<div class="badge-row" style="justify-content:center; margin-top:0.6rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id))).join('')}</div>`
+      : '<div class="empty-hint">Nenhuma badge conquistada ainda.</div>';
     body.innerHTML = `
       <div class="char-avatar-lg" ${avatarStyle}>${avatarInitial}</div>
       <div class="stat-grid"><div class="stat-box"><div class="label">Prestígio (PP)</div><div class="value">${player.ppTotal || 0}</div></div></div>
       ${birthdayLine ? `<div class="field-hint" style="text-align:center; margin-top:0.7rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
+      <div class="section-label" style="margin-top:1.1rem;">Badges</div>
+      ${badgesSectionHTML}
       <div class="section-label" style="margin-top:1.1rem;">Apresentação</div>
       <div class="profile-card">${bio ? `<div class="bio-text">${escapeHtml(bio)}</div>` : '<div class="bio-text bio-empty">Este jogador ainda não escreveu uma apresentação.</div>'}</div>
       <div class="section-label" style="margin-top:1.1rem;">Personagens</div>
@@ -1155,11 +1264,16 @@
     if(!box) return;
     const bio = (myPlayerDoc && myPlayerDoc.bio) ? myPlayerDoc.bio.trim() : '';
     const birthdayLine = formatBirthdayLine(myPlayerDoc && myPlayerDoc.birthday);
+    const ownedIds = Object.keys((myPlayerDoc && myPlayerDoc.badges) || {});
+    const badgesHTML = ownedIds.length
+      ? `<div class="section-label" style="margin-top:0.8rem;">Suas badges</div><div class="badge-row" style="margin-top:0.4rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id))).join('')}</div>`
+      : '';
     box.innerHTML =
       (birthdayLine ? `<div class="field-hint" style="margin-bottom:0.5rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : '') +
       (bio
         ? `<div class="bio-text">${escapeHtml(bio)}</div>`
-        : `<div class="bio-text bio-empty">Você ainda não escreveu sua apresentação. Clique em "Editar apresentação" para contar um pouco sobre você.</div>`);
+        : `<div class="bio-text bio-empty">Você ainda não escreveu sua apresentação. Clique em "Editar apresentação" para contar um pouco sobre você.</div>`) +
+      badgesHTML;
   }
 
   function openMyProfileDrawer(){
@@ -1170,7 +1284,41 @@
     document.getElementById('my-photo-url').value = photoURL;
     document.getElementById('my-photo-upload-hint').textContent = 'Envie uma imagem (JPG, PNG, etc.). Ela substitui a foto atual.';
     updateMyAvatarPreview(photoURL);
+    selectedDisplayBadges = ((myPlayerDoc && myPlayerDoc.displayBadges) || []).filter(id => myPlayerDoc && myPlayerDoc.badges && myPlayerDoc.badges[id]);
+    renderMyBadgeSelect();
     openDrawer('profile-drawer');
+  }
+
+  function renderMyBadgeSelect(){
+    const wrap = document.getElementById('my-badges-select');
+    if(!wrap) return;
+    const ownedIds = Object.keys((myPlayerDoc && myPlayerDoc.badges) || {});
+    if(ownedIds.length === 0){
+      wrap.innerHTML = '<div class="empty-hint">Você ainda não tem badges. A staff concede badges pelo painel de jogadores.</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    ownedIds.forEach(id => {
+      const badge = getBadge(id);
+      if(!badge) return;
+      const chip = document.createElement('span');
+      const animClass = badge.anim && badge.anim !== 'none' ? ' anim-' + badge.anim : '';
+      chip.className = 'badge-chip selectable' + animClass + (selectedDisplayBadges.includes(id) ? ' selected' : '');
+      chip.title = badge.name || '';
+      if(badge.color){ chip.style.borderColor = badge.color; chip.style.boxShadow = `0 0 7px ${badge.color}66`; }
+      chip.textContent = badge.emoji || '⭐';
+      chip.addEventListener('click', () => {
+        const idx = selectedDisplayBadges.indexOf(id);
+        if(idx !== -1){
+          selectedDisplayBadges.splice(idx, 1);
+        } else {
+          if(selectedDisplayBadges.length >= 3){ toast('Você só pode exibir até 3 badges no ranking.', true); return; }
+          selectedDisplayBadges.push(id);
+        }
+        renderMyBadgeSelect();
+      });
+      wrap.appendChild(chip);
+    });
   }
 
   function updateMyAvatarPreview(url){
@@ -1213,7 +1361,7 @@
     const birthday = document.getElementById('my-birthday-input').value;
     if(!displayName){ toast('O nome exibido não pode ficar em branco.', true); return; }
     try{
-      await updateDoc(doc(db, 'players', currentUser.uid), { bio, displayName, photoURL, birthday });
+      await updateDoc(doc(db, 'players', currentUser.uid), { bio, displayName, photoURL, birthday, displayBadges: selectedDisplayBadges });
       closeDrawer('profile-drawer');
       toast('Apresentação salva.');
     }catch(e){ toast('Erro: ' + e.message, true); }
@@ -1230,6 +1378,8 @@
         photoURL: user.photoURL || '',
         googlePhotoURL: user.photoURL || '',
         ppTotal: 0,
+        badges: {},
+        displayBadges: [],
         createdAt: serverTimestamp()
       });
     } else {
@@ -1757,13 +1907,14 @@
     if(players.length === 0){ el.innerHTML = '<div class="empty-hint">Nenhum jogador cadastrado ainda.</div>'; return; }
     el.innerHTML = '';
     const table = document.createElement('table');
-    table.innerHTML = '<thead><tr><th>Jogador</th><th>PP total</th><th>Staff</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>Jogador</th><th>PP total</th><th>Badges</th><th>Staff</th></tr></thead>';
     const tbody = document.createElement('tbody');
     players.forEach(p => {
       const tr = document.createElement('tr');
       tr.style.cursor = 'pointer';
       const staffLabel = isAdmin(p.id) ? 'Sim (fixo)' : (p.isStaff ? 'Sim' : '—');
-      tr.innerHTML = `<td>${escapeHtml(p.displayName||p.email||p.id)}</td><td>${p.ppTotal||0}</td><td>${staffLabel}</td>`;
+      const badgeCount = Object.keys(p.badges || {}).length;
+      tr.innerHTML = `<td>${escapeHtml(p.displayName||p.email||p.id)}</td><td>${p.ppTotal||0}</td><td>${badgeCount}</td><td>${staffLabel}</td>`;
       tr.addEventListener('click', () => openStaffPlayerDetail(p));
       tbody.appendChild(tr);
     });
@@ -1805,10 +1956,14 @@
              <button class="btn small ${player.isStaff ? 'danger' : 'primary'}" id="staff-toggle-role-btn">${player.isStaff ? 'Remover privilégios de staff' : 'Conceder privilégios de staff'}</button>
            </div>`
       }
+      <div class="section-label" style="margin-top:1rem;">Badges do jogador</div>
+      <div class="field-hint">Toque em uma badge pra conceder ou remover. As badges concedidas ficam disponíveis pro jogador escolher e exibir no ranking.</div>
+      <div class="badge-row" id="staff-player-badges" style="margin-top:0.6rem;"></div>
       <div class="section-label" style="margin-top:1rem;">Apresentação do jogador</div>
       ${birthdayLine ? `<div class="field-hint">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
       <div class="profile-card">${bio ? `<div class="bio-text">${escapeHtml(bio)}</div>` : '<div class="bio-text bio-empty">Este jogador ainda não escreveu uma apresentação.</div>'}</div>
     `;
+    renderStaffPlayerBadges(player);
     document.getElementById('staff-edit-pp-save-btn').addEventListener('click', async () => {
       const val = parseInt(document.getElementById('staff-edit-pp-input').value || '0', 10);
       if(isNaN(val) || val < 0){ toast('Informe um valor de PP válido.', true); return; }
@@ -1877,6 +2032,126 @@
       listWrap.appendChild(card);
     });
     body.appendChild(listWrap);
+  }
+
+  function renderStaffPlayerBadges(player){
+    const wrap = document.getElementById('staff-player-badges');
+    if(!wrap) return;
+    if(allBadges.length === 0){
+      wrap.innerHTML = '<div class="empty-hint">Nenhuma badge no catálogo ainda. Crie badges na seção "Catálogo de badges" abaixo.</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    allBadges.forEach(b => {
+      const owned = !!(player.badges && player.badges[b.id]);
+      const animClass = b.anim && b.anim !== 'none' ? ' anim-' + b.anim : '';
+      const chip = document.createElement('span');
+      chip.className = 'badge-chip selectable owned-toggle' + (owned ? ' awarded' : '') + animClass;
+      chip.title = b.name || '';
+      if(b.color){ chip.style.borderColor = b.color; }
+      chip.textContent = b.emoji || '⭐';
+      chip.addEventListener('click', async () => {
+        try{
+          if(player.badges && player.badges[b.id]){
+            await updateDoc(doc(db, 'players', player.id), {
+              [`badges.${b.id}`]: deleteField(),
+              displayBadges: (player.displayBadges || []).filter(id => id !== b.id)
+            });
+            delete player.badges[b.id];
+            player.displayBadges = (player.displayBadges || []).filter(id => id !== b.id);
+            toast('Badge removida do jogador.');
+          } else {
+            await updateDoc(doc(db, 'players', player.id), {
+              [`badges.${b.id}`]: { awardedAt: serverTimestamp(), awardedBy: currentUser.uid }
+            });
+            player.badges = { ...(player.badges || {}), [b.id]: true };
+            toast('Badge concedida ao jogador.');
+          }
+          renderStaffPlayerBadges(player);
+        }catch(e){ toast('Erro: ' + e.message, true); }
+      });
+      wrap.appendChild(chip);
+    });
+  }
+
+  // ================= CATÁLOGO DE BADGES (staff) =================
+  function renderBadgeCatalogPanel(){
+    const list = document.getElementById('badge-catalog-list');
+    if(!list) return;
+    if(allBadges.length === 0){ list.innerHTML = '<div class="empty-hint">Nenhuma badge criada ainda.</div>'; return; }
+    list.innerHTML = '';
+    allBadges.forEach(b => {
+      const row = document.createElement('div');
+      row.className = 'badge-catalog-item';
+      row.innerHTML = `
+        ${badgeChipHTML(b)}
+        <div class="info">
+          <div class="name">${escapeHtml(b.name || 'Sem nome')}</div>
+          <div class="meta">Animação: ${animLabel(b.anim)}</div>
+        </div>
+      `;
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn small';
+      editBtn.textContent = 'Editar';
+      editBtn.addEventListener('click', () => startEditBadge(b));
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn small danger';
+      delBtn.textContent = 'Excluir';
+      delBtn.addEventListener('click', () => deleteBadge(b));
+      row.appendChild(editBtn);
+      row.appendChild(delBtn);
+      list.appendChild(row);
+    });
+  }
+
+  function startEditBadge(b){
+    editingBadgeId = b.id;
+    document.getElementById('badge-name-input').value = b.name || '';
+    document.getElementById('badge-emoji-input').value = b.emoji || '';
+    document.getElementById('badge-anim-select').value = b.anim || 'none';
+    document.getElementById('badge-color-input').value = b.color || '';
+    document.getElementById('badge-form-label').textContent = 'Editando: ' + (b.name || '');
+    document.getElementById('badge-save-btn').textContent = 'Salvar edição';
+    document.getElementById('badge-cancel-edit-btn').style.display = 'inline-block';
+  }
+
+  function resetBadgeForm(){
+    editingBadgeId = null;
+    document.getElementById('badge-name-input').value = '';
+    document.getElementById('badge-emoji-input').value = '';
+    document.getElementById('badge-anim-select').value = 'none';
+    document.getElementById('badge-color-input').value = '';
+    document.getElementById('badge-form-label').textContent = 'Nova badge';
+    document.getElementById('badge-save-btn').textContent = 'Criar badge';
+    document.getElementById('badge-cancel-edit-btn').style.display = 'none';
+  }
+
+  document.getElementById('badge-cancel-edit-btn').addEventListener('click', resetBadgeForm);
+
+  document.getElementById('badge-save-btn').addEventListener('click', async () => {
+    const name = document.getElementById('badge-name-input').value.trim();
+    const emoji = document.getElementById('badge-emoji-input').value.trim() || '⭐';
+    const anim = document.getElementById('badge-anim-select').value;
+    const color = document.getElementById('badge-color-input').value.trim();
+    if(!name){ toast('Dê um nome para a badge.', true); return; }
+    try{
+      if(editingBadgeId){
+        await updateDoc(doc(db, 'badges', editingBadgeId), { name, emoji, anim, color });
+        toast('Badge atualizada.');
+      } else {
+        await addDoc(collection(db, 'badges'), { name, emoji, anim, color, createdBy: currentUser.uid, createdAt: serverTimestamp() });
+        toast('Badge criada.');
+      }
+      resetBadgeForm();
+    }catch(e){ toast('Erro: ' + e.message, true); }
+  });
+
+  async function deleteBadge(b){
+    if(!confirm(`Excluir a badge "${b.name}"? Jogadores que já a possuem vão perdê-la (inclusive da exibição no ranking).`)) return;
+    try{
+      await deleteDoc(doc(db, 'badges', b.id));
+      toast('Badge excluída.');
+    }catch(e){ toast('Erro: ' + e.message, true); }
   }
 
   function openStaffCharProfile(player, c){
