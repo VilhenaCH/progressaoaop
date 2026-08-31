@@ -629,7 +629,11 @@
         <option value="shake">Balançando</option>
       </select>
       <label>Cor de destaque (opcional)</label>
-      <input type="text" id="badge-color-input" placeholder="#8fd7e8">
+      <div style="display:flex; align-items:center; gap:0.6rem;">
+        <input type="color" id="badge-color-input" value="#8fd7e8" style="width:3.2rem; height:2.5rem; padding:2px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--bg-2); cursor:pointer;">
+        <button type="button" class="btn small" id="badge-color-clear-btn">Sem cor</button>
+      </div>
+      <div class="field-hint">Escolha uma cor pela roda cromática pra destacar a borda e o brilho da badge, ou toque em "Sem cor" pra usar o padrão.</div>
       <label>Descrição (opcional)</label>
       <textarea id="badge-description-input" placeholder="Um texto breve sobre o que essa badge significa ou como foi conquistada." style="min-height:80px;"></textarea>
       <div class="field-hint">Esse texto aparece quando alguém inspeciona a badge.</div>
@@ -946,6 +950,15 @@
   let selectedDisplayBadges = [];  // seleção em edição no drawer de apresentação (até 3)
   let editingBadgeId = null;       // badge sendo editada no painel de staff
   let currentBadgeIconData = '';   // data URL da imagem/GIF enviada pra badge (form atual)
+  let currentBadgeHasColor = false; // se a badge atual tem cor de destaque escolhida
+  const BADGE_COLOR_DEFAULT_SWATCH = '#8fd7e8';
+
+  function setBadgeColorPicker(color){
+    const input = document.getElementById('badge-color-input');
+    if(!input) return;
+    currentBadgeHasColor = !!color;
+    input.value = color || BADGE_COLOR_DEFAULT_SWATCH;
+  }
 
   function setBadgeIconPreview(dataUrl){
     const preview = document.getElementById('badge-icon-preview');
@@ -2219,7 +2232,7 @@
     currentBadgeIconData = b.iconUrl || '';
     setBadgeIconPreview(currentBadgeIconData);
     document.getElementById('badge-anim-select').value = b.anim || 'none';
-    document.getElementById('badge-color-input').value = b.color || '';
+    setBadgeColorPicker(b.color || '');
     document.getElementById('badge-description-input').value = b.description || '';
     document.getElementById('badge-form-label').textContent = 'Editando: ' + (b.name || '');
     document.getElementById('badge-save-btn').textContent = 'Salvar edição';
@@ -2234,6 +2247,7 @@
     setBadgeIconPreview('');
     document.getElementById('badge-anim-select').value = 'none';
     document.getElementById('badge-color-input').value = '';
+    setBadgeColorPicker('');
     document.getElementById('badge-description-input').value = '';
     document.getElementById('badge-form-label').textContent = 'Nova badge';
     document.getElementById('badge-save-btn').textContent = 'Criar badge';
@@ -2249,6 +2263,14 @@
   document.getElementById('badge-icon-remove-btn').addEventListener('click', () => {
     currentBadgeIconData = '';
     setBadgeIconPreview('');
+  });
+
+  document.getElementById('badge-color-input').addEventListener('input', () => {
+    currentBadgeHasColor = true;
+  });
+
+  document.getElementById('badge-color-clear-btn').addEventListener('click', () => {
+    setBadgeColorPicker('');
   });
 
   document.getElementById('badge-icon-file-input').addEventListener('change', async (e) => {
@@ -2269,7 +2291,7 @@
     const emoji = document.getElementById('badge-emoji-input').value.trim() || '⭐';
     const iconUrl = currentBadgeIconData;
     const anim = document.getElementById('badge-anim-select').value;
-    const color = document.getElementById('badge-color-input').value.trim();
+    const color = currentBadgeHasColor ? document.getElementById('badge-color-input').value.trim() : '';
     const description = document.getElementById('badge-description-input').value.trim();
     if(!name){ toast('Dê um nome para a badge.', true); return; }
     try{
