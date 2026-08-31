@@ -413,6 +413,8 @@
   .badge-chip.selectable{ cursor:pointer; transition:border-color .15s var(--ease-soft), transform .15s var(--ease-soft); }
   .badge-chip.selectable:hover{ transform:translateY(-1px); border-color:var(--ice-300); }
   .badge-chip.selectable.selected{ border-color:var(--frost); box-shadow:0 0 0 2px rgba(143,215,232,0.22); }
+  .badge-chip.inspectable{ cursor:pointer; transition:transform .15s var(--ease-soft); }
+  .badge-chip.inspectable:hover{ transform:translateY(-1px); }
   .badge-chip.owned-toggle{ opacity:0.35; }
   .badge-chip.owned-toggle.awarded{ opacity:1; border-color:var(--safe); box-shadow:0 0 0 2px rgba(127,185,138,0.18); }
   .badge-catalog-item{
@@ -628,6 +630,9 @@
       </select>
       <label>Cor de destaque (opcional)</label>
       <input type="text" id="badge-color-input" placeholder="#8fd7e8">
+      <label>Descrição (opcional)</label>
+      <textarea id="badge-description-input" placeholder="Um texto breve sobre o que essa badge significa ou como foi conquistada." style="min-height:80px;"></textarea>
+      <div class="field-hint">Esse texto aparece quando alguém inspeciona a badge.</div>
       <div class="form-actions">
         <button class="btn primary" id="badge-save-btn">Criar badge</button>
         <button class="btn small" id="badge-cancel-edit-btn" style="display:none;">Cancelar edição</button>
@@ -763,6 +768,19 @@
     <button class="drawer-close" data-close="player-view-drawer">✕</button>
   </div>
   <div class="drawer-body" id="player-view-body"></div>
+</div>
+
+<!-- drawer: inspecionar badge -->
+<div class="backdrop" id="badge-inspect-drawer-backdrop"></div>
+<div class="drawer" id="badge-inspect-drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="eyebrow">Badge</div>
+      <h2 id="badge-inspect-name">—</h2>
+    </div>
+    <button class="drawer-close" data-close="badge-inspect-drawer">✕</button>
+  </div>
+  <div class="drawer-body" id="badge-inspect-body"></div>
 </div>
 
 <div id="toast"></div>
@@ -957,7 +975,7 @@
     const map = { none:'Nenhuma', pulse:'Pulso', bounce:'Saltitante', spin:'Girando', float:'Flutuando', shine:'Brilho', shake:'Balançando' };
     return map[anim] || 'Nenhuma';
   }
-  function badgeChipHTML(badge, extraClass=''){
+  function badgeChipHTML(badge, extraClass='', awardedAt=null){
     if(!badge) return '';
     const animClass = badge.anim && badge.anim !== 'none' ? ' anim-' + badge.anim : '';
     const title = escapeHtml(badge.name || '');
@@ -965,8 +983,52 @@
     const inner = badge.iconUrl
       ? `<img src="${escapeHtml(badge.iconUrl)}" alt="${title}" loading="lazy">`
       : escapeHtml(badge.emoji || '⭐');
-    return `<span class="badge-chip${animClass}${extraClass}" title="${title}"${colorStyle}>${inner}</span>`;
+    const millis = awardedAtToMillis(awardedAt);
+    const dataAttrs = ` data-badge-id="${escapeHtml(badge.id || '')}"${millis ? ` data-awarded-at="${millis}"` : ''}`;
+    return `<span class="badge-chip inspectable${animClass}${extraClass}" title="${title}"${colorStyle}${dataAttrs}>${inner}</span>`;
   }
+
+  function awardedAtToMillis(awardedAt){
+    if(!awardedAt) return null;
+    if(typeof awardedAt.toMillis === 'function') return awardedAt.toMillis();
+    if(awardedAt instanceof Date) return awardedAt.getTime();
+    if(typeof awardedAt === 'number') return awardedAt;
+    return null;
+  }
+
+  function formatBadgeAwardedDate(millis){
+    try{ return new Date(millis).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' }); }
+    catch(e){ return null; }
+  }
+
+  function openBadgeInspect(badge, awardedAtMillis){
+    document.getElementById('badge-inspect-name').textContent = badge.name || 'Badge';
+    const body = document.getElementById('badge-inspect-body');
+    const desc = (badge.description || '').trim();
+    const dateLine = awardedAtMillis ? formatBadgeAwardedDate(awardedAtMillis) : null;
+    const iconHTML = badge.iconUrl
+      ? `<img src="${escapeHtml(badge.iconUrl)}" alt="${escapeHtml(badge.name || '')}">`
+      : escapeHtml(badge.emoji || '⭐');
+    const colorStyle = badge.color ? ` border-color:${escapeHtml(badge.color)}; box-shadow:0 0 10px ${escapeHtml(badge.color)}66;` : '';
+    body.innerHTML = `
+      <div style="display:flex; justify-content:center; margin-bottom:1rem;">
+        <span class="badge-chip${badge.anim && badge.anim !== 'none' ? ' anim-' + badge.anim : ''}" style="width:4rem; height:4rem; font-size:2rem;${colorStyle}">${iconHTML}</span>
+      </div>
+      ${desc ? `<div class="bio-text" style="text-align:center;">${escapeHtml(desc)}</div>` : '<div class="empty-hint" style="text-align:center;">Essa badge ainda não tem uma descrição.</div>'}
+      ${dateLine ? `<div class="field-hint" style="text-align:center; margin-top:0.9rem;">Concedida em ${dateLine}</div>` : ''}
+    `;
+    openDrawer('badge-inspect-drawer');
+  }
+
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('.badge-chip.inspectable[data-badge-id]');
+    if(!chip) return;
+    const badge = getBadge(chip.dataset.badgeId);
+    if(!badge) return;
+    e.stopPropagation();
+    const awardedAtMillis = chip.dataset.awardedAt ? Number(chip.dataset.awardedAt) : null;
+    openBadgeInspect(badge, awardedAtMillis);
+  }, true);
 
   // ================= TEMA =================
   const THEME_KEY = 'nexo-theme';
@@ -1147,7 +1209,7 @@
       const crown = rank === 1 ? '<span class="rank-crown">👑</span>' : '';
       const displayIds = (p.displayBadges || []).filter(id => p.badges && p.badges[id]);
       const badgesHTML = displayIds.length
-        ? `<span class="badge-row inline">${displayIds.map(id => badgeChipHTML(getBadge(id), ' sm')).join('')}</span>`
+        ? `<span class="badge-row inline">${displayIds.map(id => badgeChipHTML(getBadge(id), ' sm', p.badges && p.badges[id] && p.badges[id].awardedAt)).join('')}</span>`
         : '';
       item.innerHTML = `
         <div class="rank-pos">${crown}${rank}º</div>
@@ -1174,7 +1236,7 @@
     const avatarInitial = player.photoURL ? '' : escapeHtml((player.displayName || player.email || '?').slice(0,1).toUpperCase());
     const ownedIds = Object.keys(player.badges || {});
     const badgesSectionHTML = ownedIds.length
-      ? `<div class="badge-row" style="justify-content:center; margin-top:0.6rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id))).join('')}</div>`
+      ? `<div class="badge-row" style="justify-content:center; margin-top:0.6rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id), '', player.badges[id] && player.badges[id].awardedAt)).join('')}</div>`
       : '<div class="empty-hint">Nenhuma badge conquistada ainda.</div>';
     body.innerHTML = `
       <div class="char-avatar-lg" ${avatarStyle}>${avatarInitial}</div>
@@ -1306,7 +1368,7 @@
     const birthdayLine = formatBirthdayLine(myPlayerDoc && myPlayerDoc.birthday);
     const ownedIds = Object.keys((myPlayerDoc && myPlayerDoc.badges) || {});
     const badgesHTML = ownedIds.length
-      ? `<div class="section-label" style="margin-top:0.8rem;">Suas badges</div><div class="badge-row" style="margin-top:0.4rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id))).join('')}</div>`
+      ? `<div class="section-label" style="margin-top:0.8rem;">Suas badges</div><div class="badge-row" style="margin-top:0.4rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id), '', myPlayerDoc.badges[id] && myPlayerDoc.badges[id].awardedAt)).join('')}</div>`
       : '';
     box.innerHTML =
       (birthdayLine ? `<div class="field-hint" style="margin-bottom:0.5rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : '') +
@@ -2158,6 +2220,7 @@
     setBadgeIconPreview(currentBadgeIconData);
     document.getElementById('badge-anim-select').value = b.anim || 'none';
     document.getElementById('badge-color-input').value = b.color || '';
+    document.getElementById('badge-description-input').value = b.description || '';
     document.getElementById('badge-form-label').textContent = 'Editando: ' + (b.name || '');
     document.getElementById('badge-save-btn').textContent = 'Salvar edição';
     document.getElementById('badge-cancel-edit-btn').style.display = 'inline-block';
@@ -2171,6 +2234,7 @@
     setBadgeIconPreview('');
     document.getElementById('badge-anim-select').value = 'none';
     document.getElementById('badge-color-input').value = '';
+    document.getElementById('badge-description-input').value = '';
     document.getElementById('badge-form-label').textContent = 'Nova badge';
     document.getElementById('badge-save-btn').textContent = 'Criar badge';
     document.getElementById('badge-cancel-edit-btn').style.display = 'none';
@@ -2206,13 +2270,14 @@
     const iconUrl = currentBadgeIconData;
     const anim = document.getElementById('badge-anim-select').value;
     const color = document.getElementById('badge-color-input').value.trim();
+    const description = document.getElementById('badge-description-input').value.trim();
     if(!name){ toast('Dê um nome para a badge.', true); return; }
     try{
       if(editingBadgeId){
-        await updateDoc(doc(db, 'badges', editingBadgeId), { name, emoji, iconUrl, anim, color });
+        await updateDoc(doc(db, 'badges', editingBadgeId), { name, emoji, iconUrl, anim, color, description });
         toast('Badge atualizada.');
       } else {
-        await addDoc(collection(db, 'badges'), { name, emoji, iconUrl, anim, color, createdBy: currentUser.uid, createdAt: serverTimestamp() });
+        await addDoc(collection(db, 'badges'), { name, emoji, iconUrl, anim, color, description, createdBy: currentUser.uid, createdAt: serverTimestamp() });
         toast('Badge criada.');
       }
       resetBadgeForm();
@@ -2329,7 +2394,7 @@
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeDrawer(btn.dataset.close));
   });
-  ['char-drawer','detail-drawer','req-drawer','profile-drawer','char-profile-drawer','player-view-drawer'].forEach(id => {
+  ['char-drawer','detail-drawer','req-drawer','profile-drawer','char-profile-drawer','player-view-drawer','badge-inspect-drawer'].forEach(id => {
     document.getElementById(id + '-backdrop').addEventListener('click', () => closeDrawer(id));
   });
 
