@@ -1,10 +1,10 @@
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, doc, setDoc, getDoc, updateDoc, addDoc, collection, query, where,
-    onSnapshot, serverTimestamp, deleteDoc, orderBy, runTransaction, increment, getDocs, deleteField
+    onSnapshot, serverTimestamp, deleteDoc, orderBy, runTransaction, increment, getDocs, deleteField, limit
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   // ================= CONFIG =================
@@ -151,6 +151,8 @@
   let unsubAllPlayers = null;
   let unsubRanking = null;
   let unsubBadges = null;
+  let unsubFeed = null;
+  let lastFeedIds = new Set();     // pra animar só os itens novos que chegam
   let prevRankOrder = [];
   let staffSubsActive = false;
   let allBadges = [];              // catálogo global de badges: [{id, name, emoji, anim, color}]
@@ -362,6 +364,7 @@
     subscribeMyRequests(user.uid);
     subscribeRanking();
     subscribeBadges();
+    subscribeFeed();
 
     updateStaffAccess();
     if(!isAdmin(user.uid)) console.info('Seu UID (caso precise virar staff):', user.uid);
@@ -375,6 +378,8 @@
     if(unsubRanking) unsubRanking();
     if(unsubBadges) unsubBadges();
     unsubBadges = null;
+    if(unsubFeed) unsubFeed();
+    unsubFeed = null;
   }
 
   function renderLoggedOut(){
@@ -388,6 +393,7 @@
     myCharacters = []; myRequests = []; myPlayerDoc = null;
     prevRankOrder = []; staffSubsActive = false;
     allBadges = []; lastRankingPlayers = []; selectedDisplayBadges = [];
+    lastFeedIds = new Set();
   }
 
   // ================= RANKING (visível a todos os agentes) =================
@@ -447,7 +453,91 @@
     prevRankOrder = newOrder;
   }
 
-  // ================= PERFIL PÚBLICO (visto a partir do ranking) =================
+  // ================= FEED DE ATIVIDADE (mural público) =================
+  // Grava um evento leve e público em `feed`; nunca inclui motivo/nota interna da staff.
+  async function publishFeedEvent(type, data){
+    try{
+      await addDoc(collection(db, 'feed'), { type, ...data, createdAt: serverTimestamp() });
+    }catch(e){ console.warn('Feed indisponível (regra do Firestore ainda não liberada?):', e.message); }
+  }
+
+  function playerLookup(uid){
+    return lastRankingPlayers.find(p => p.id === uid) || null;
+  }
+
+  function subscribeFeed(){
+    const q = query(collection(db, 'feed'), orderBy('createdAt', 'desc'), limit(30));
+    unsubFeed = onSnapshot(q, (snap) => {
+      const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderFeed(events);
+    }, (err) => {
+      console.warn('Feed indisponível:', err.message);
+      const el = document.getElementById('feed-list');
+      if(el) el.innerHTML = '<div class="empty-hint">O mural ainda não está liberado (regra do Firestore para a coleção "feed" precisa ser adicionada).</div>';
+    });
+  }
+
+  const FEED_ICONS = { grant:'✨', badge:'🏅', patente:'⭐', resgate:'🎁' };
+
+  function feedItemText(ev){
+    const who = escapeHtml(ev.playerName || 'Um agente');
+    if(ev.type === 'grant'){
+      const parts = [];
+      if(ev.peAmount) parts.push(`${ev.peAmount > 0 ? '+' : ''}${ev.peAmount} PE`);
+      if(ev.ppAmount) parts.push(`${ev.ppAmount > 0 ? '+' : ''}${ev.ppAmount} PP`);
+      return `<strong>${who}</strong> recebeu ${parts.join(' e ') || 'um ajuste'} da staff${ev.charName ? ` em <em>${escapeHtml(ev.charName)}</em>` : ''}`;
+    }
+    if(ev.type === 'badge'){
+      return `<strong>${who}</strong> conquistou a badge <em>${escapeHtml(ev.badgeName || '')}</em>`;
+    }
+    if(ev.type === 'patente'){
+      return `<strong>${who}</strong> alcançou a patente <em>${escapeHtml(ev.patenteLabel || '')}</em>${ev.charName ? ` com <em>${escapeHtml(ev.charName)}</em>` : ''}`;
+    }
+    if(ev.type === 'resgate'){
+      return `<strong>${who}</strong> resgatou <em>${escapeHtml(ev.reqLabel || 'uma recompensa')}</em>${ev.charName ? ` para <em>${escapeHtml(ev.charName)}</em>` : ''}`;
+    }
+    return `<strong>${who}</strong> teve uma atualização`;
+  }
+
+  function renderFeed(events){
+    const el = document.getElementById('feed-list');
+    if(!el) return;
+    if(events.length === 0){ el.innerHTML = '<div class="empty-hint">Ainda não rolou nada por aqui. As conquistas da mesa vão aparecer neste mural.</div>'; return; }
+    el.innerHTML = '';
+    events.forEach((ev, idx) => {
+      const isNew = !lastFeedIds.has(ev.id);
+      const p = playerLookup(ev.uid);
+      const avatarStyle = p && p.photoURL ? `style="background-image:url('${escapeHtml(p.photoURL)}')"` : '';
+      const avatarInitial = p && p.photoURL ? '' : escapeHtml((ev.playerName || p?.displayName || '?').slice(0,1).toUpperCase());
+      const item = document.createElement('div');
+      item.className = 'feed-item' + (isNew && lastFeedIds.size ? ' feed-item-new' : '');
+      item.style.animationDelay = `${Math.min(idx * 45, 400)}ms`;
+      item.innerHTML = `
+        <div class="feed-icon">${FEED_ICONS[ev.type] || '📌'}</div>
+        <div class="rank-avatar feed-avatar" ${avatarStyle}>${avatarInitial}</div>
+        <div class="feed-main">
+          <div class="feed-text">${feedItemText(ev)}</div>
+          <div class="feed-time">${feedRelativeTime(ev.createdAt)}</div>
+        </div>
+      `;
+      el.appendChild(item);
+    });
+    lastFeedIds = new Set(events.map(e => e.id));
+  }
+
+  function feedRelativeTime(ts){
+    if(!ts || !ts.toDate) return 'agora há pouco';
+    const diffMs = Date.now() - ts.toDate().getTime();
+    const min = Math.floor(diffMs / 60000);
+    if(min < 1) return 'agora há pouco';
+    if(min < 60) return `há ${min} min`;
+    const h = Math.floor(min / 60);
+    if(h < 24) return `há ${h}h`;
+    const d = Math.floor(h / 24);
+    return `há ${d}d`;
+  }
+
+
   async function openPlayerViewDrawer(player){
     document.getElementById('player-view-name').textContent = player.displayName || player.email || 'Agente';
     const body = document.getElementById('player-view-body');
@@ -740,7 +830,7 @@
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === name));
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   }
-  switchView('personagens');
+  switchView('feed');
 
   // ================= CHARACTERS =================
   function subscribeCharacters(uid){
@@ -1161,6 +1251,15 @@
       tx.update(reqRef, { status: decision, reviewedBy: currentUser.uid, reviewedAt: serverTimestamp() });
     }).then(() => {
       toast(decision === 'aprovado' ? 'Solicitação aprovada e aplicada.' : 'Solicitação negada.');
+      if(decision === 'aprovado'){
+        const p = playerLookup(r.uid);
+        const base = { uid: r.uid, playerName: (p && (p.displayName || p.email)) || 'Um agente', charName: r.charName || null };
+        if(r.type === 'patente'){
+          publishFeedEvent('patente', { ...base, patenteLabel: r.patenteLabel || '' });
+        } else {
+          publishFeedEvent('resgate', { ...base, reqLabel: reqLabel(r.type) });
+        }
+      }
     }).catch(e => toast('Erro: ' + e.message, true));
   }
 
@@ -1223,6 +1322,17 @@
         uid: playerUid, charId: charId||null, peAmount: pe, ppAmount: pp, reason, countsSession,
         grantedBy: currentUser.uid, grantedAt: serverTimestamp()
       });
+      if(pe > 0 || pp > 0){
+        const playerSel = document.getElementById('grant-player-select');
+        const charSel = document.getElementById('grant-char-select');
+        publishFeedEvent('grant', {
+          uid: playerUid,
+          playerName: playerSel.selectedOptions[0]?.textContent || '',
+          charName: charId ? (charSel.selectedOptions[0]?.textContent || '') : null,
+          peAmount: pe > 0 ? pe : 0,
+          ppAmount: pp > 0 ? pp : 0
+        });
+      }
       document.getElementById('grant-pe').value = 0;
       document.getElementById('grant-pp').value = 0;
       document.getElementById('grant-reason').value = '';
@@ -1395,6 +1505,11 @@
             });
             player.badges = { ...(player.badges || {}), [b.id]: true };
             toast('Badge concedida ao jogador.');
+            publishFeedEvent('badge', {
+              uid: player.id,
+              playerName: player.displayName || player.email || 'Um agente',
+              badgeName: b.name || ''
+            });
           }
           renderStaffPlayerBadges(player);
         }catch(e){ toast('Erro: ' + e.message, true); }
