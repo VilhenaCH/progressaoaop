@@ -40,6 +40,7 @@
 </div>
 
 <nav id="navbar" style="display:none;">
+  <button class="tab-btn" data-view="feed">Feed</button>
   <button class="tab-btn" data-view="personagens">Personagens</button>
   <button class="tab-btn" data-view="economia">Economia</button>
   <button class="tab-btn" data-view="ranking">Ranking</button>
@@ -48,6 +49,7 @@
 </nav>
 
 <nav id="bottom-nav">
+  <button class="tab-btn bn-btn" data-view="feed"><span class="bn-icon">📡</span><span>Feed</span></button>
   <button class="tab-btn bn-btn" data-view="personagens"><span class="bn-icon">🗂️</span><span>Fichas</span></button>
   <button class="tab-btn bn-btn" data-view="economia"><span class="bn-icon">💰</span><span>Economia</span></button>
   <button class="tab-btn bn-btn" data-view="ranking"><span class="bn-icon">🏆</span><span>Ranking</span></button>
@@ -66,8 +68,18 @@
     </div>
   </div>
 
+  <!-- FEED -->
+  <section class="view" id="view-feed">
+    <div class="panel">
+      <div class="section-label">Mural da mesa</div>
+      <h2>O que rolou por aqui</h2>
+      <div id="feed-list" class="feed-list"></div>
+    </div>
+  </section>
+
   <!-- PERSONAGENS -->
   <section class="view" id="view-personagens">
+
     <div class="panel">
       <div class="section-label">Sua apresentação</div>
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.8rem; flex-wrap:wrap;">
