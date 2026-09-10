@@ -454,6 +454,18 @@
   }
   .profile-avatar-overlap{ position:relative; z-index:1; border:3px solid var(--hud-bg); }
 
+  /* ---------- recorte/posicionamento de imagem ---------- */
+  #crop-drawer-backdrop{ z-index:3200; }
+  #crop-drawer{ z-index:3300; }
+  .crop-viewport{
+    position:relative; overflow:hidden; margin:0 auto; background:var(--bg-2);
+    border:1px solid var(--line); touch-action:none; cursor:grab;
+  }
+  .crop-viewport.dragging{ cursor:grabbing; }
+  .crop-viewport.avatar{ width:240px; height:240px; border-radius:50%; }
+  .crop-viewport.banner{ width:100%; max-width:340px; height:113px; border-radius:var(--r-md); }
+  #crop-img{ position:absolute; top:0; left:0; transform-origin:0 0; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+
   /* ---------- confete ---------- */
   .confetti-canvas{ position:fixed; inset:0; z-index:5000; pointer-events:none; }
 
