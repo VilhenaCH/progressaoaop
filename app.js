@@ -73,7 +73,123 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     });
   }
 
-  // Lê um arquivo de imagem/GIF como data URL sem passar por canvas,
+  // ---------- recorte/posicionamento de imagem (avatar circular ou banner largo) ----------
+  const cropState = { img:null, scale:1, minScale:1, maxScale:1, tx:0, ty:0, vw:0, vh:0, outW:0, outH:0, onConfirm:null, dragging:false, startX:0, startY:0, startTx:0, startTy:0 };
+
+  function loadImageFile(file){
+    return new Promise((resolve, reject) => {
+      if(!file.type || !file.type.startsWith('image/')){ reject(new Error('O arquivo selecionado não é uma imagem.')); return; }
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Não foi possível abrir a imagem.'));
+        img.onload = () => resolve(img);
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function cropClamp(){
+    cropState.tx = Math.min(0, Math.max(cropState.vw - cropState.img.width * cropState.scale, cropState.tx));
+    cropState.ty = Math.min(0, Math.max(cropState.vh - cropState.img.height * cropState.scale, cropState.ty));
+  }
+  function cropApplyTransform(){
+    const img = document.getElementById('crop-img');
+    img.style.transform = `translate(${cropState.tx}px, ${cropState.ty}px) scale(${cropState.scale})`;
+  }
+
+  async function openCropModal(file, mode, onConfirm){
+    let img;
+    try{ img = await loadImageFile(file); }
+    catch(err){ toast(err.message, true); return; }
+
+    const viewport = document.getElementById('crop-viewport');
+    viewport.className = 'crop-viewport ' + mode;
+    document.getElementById('crop-title').textContent = mode === 'banner' ? 'Posicionar banner' : 'Posicionar foto';
+    // mede o viewport já com a classe certa aplicada
+    const vw = viewport.clientWidth || (mode === 'banner' ? 340 : 240);
+    const vh = viewport.clientHeight || (mode === 'banner' ? 113 : 240);
+
+    cropState.img = img;
+    cropState.vw = vw; cropState.vh = vh;
+    cropState.outW = mode === 'banner' ? 900 : 480;
+    cropState.outH = mode === 'banner' ? 300 : 480;
+    cropState.minScale = Math.max(vw / img.width, vh / img.height);
+    cropState.maxScale = cropState.minScale * 3;
+    cropState.scale = cropState.minScale;
+    cropState.tx = (vw - img.width * cropState.scale) / 2;
+    cropState.ty = (vh - img.height * cropState.scale) / 2;
+    cropState.onConfirm = onConfirm;
+
+    const cropImg = document.getElementById('crop-img');
+    cropImg.src = img.src;
+    cropApplyTransform();
+    document.getElementById('crop-zoom').value = 0;
+
+    openDrawer('crop-drawer');
+  }
+
+  (function setupCropDrag(){
+    const viewport = document.getElementById('crop-viewport');
+    function pos(e){ return e.touches ? { x:e.touches[0].clientX, y:e.touches[0].clientY } : { x:e.clientX, y:e.clientY }; }
+    function down(e){
+      if(!cropState.img) return;
+      cropState.dragging = true; viewport.classList.add('dragging');
+      const p = pos(e);
+      cropState.startX = p.x; cropState.startY = p.y;
+      cropState.startTx = cropState.tx; cropState.startTy = cropState.ty;
+    }
+    function move(e){
+      if(!cropState.dragging) return;
+      const p = pos(e);
+      cropState.tx = cropState.startTx + (p.x - cropState.startX);
+      cropState.ty = cropState.startTy + (p.y - cropState.startY);
+      cropClamp();
+      cropApplyTransform();
+    }
+    function up(){ cropState.dragging = false; viewport.classList.remove('dragging'); }
+    viewport.addEventListener('mousedown', down);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    viewport.addEventListener('touchstart', down, { passive:true });
+    window.addEventListener('touchmove', move, { passive:true });
+    window.addEventListener('touchend', up);
+  })();
+
+  document.getElementById('crop-zoom').addEventListener('input', (e) => {
+    if(!cropState.img) return;
+    const t = parseInt(e.target.value, 10) / 100; // 0..1
+    const prevScale = cropState.scale;
+    cropState.scale = cropState.minScale + t * (cropState.maxScale - cropState.minScale);
+    // mantém o centro do viewport fixo ao dar zoom
+    const cx = cropState.vw / 2, cy = cropState.vh / 2;
+    const ratio = cropState.scale / prevScale;
+    cropState.tx = cx - (cx - cropState.tx) * ratio;
+    cropState.ty = cy - (cy - cropState.ty) * ratio;
+    cropClamp();
+    cropApplyTransform();
+  });
+
+  document.getElementById('crop-confirm-btn').addEventListener('click', () => {
+    if(!cropState.img) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = cropState.outW; canvas.height = cropState.outH;
+    const ctx = canvas.getContext('2d');
+    const sx = -cropState.tx / cropState.scale;
+    const sy = -cropState.ty / cropState.scale;
+    const sw = cropState.vw / cropState.scale;
+    const sh = cropState.vh / cropState.scale;
+    ctx.drawImage(cropState.img, sx, sy, sw, sh, 0, 0, cropState.outW, cropState.outH);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const cb = cropState.onConfirm;
+    closeDrawer('crop-drawer');
+    cropState.img = null; cropState.onConfirm = null;
+    if(cb) cb(dataUrl);
+  });
+
+
   // pra não perder a animação de GIFs. Aplica um limite de tamanho porque
   // o ícone fica salvo direto no documento da badge no Firestore.
   function readIconFileAsDataURL(file, maxBytes){
@@ -833,40 +949,30 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   document.getElementById('my-photo-url').addEventListener('input', (e) => updateMyAvatarPreview(e.target.value.trim()));
   document.getElementById('my-banner-url').addEventListener('input', (e) => updateMyBannerPreview(e.target.value.trim()));
 
-  document.getElementById('my-photo-file').addEventListener('change', async (e) => {
+  document.getElementById('my-photo-file').addEventListener('change', (e) => {
     const file = e.target.files[0];
+    e.target.value = '';
     if(!file || !currentUser) return;
     const hint = document.getElementById('my-photo-upload-hint');
-    hint.textContent = 'Processando imagem...';
-    try{
-      const dataUrl = await resizeImageToDataURL(file);
+    openCropModal(file, 'avatar', (dataUrl) => {
       const urlInput = document.getElementById('my-photo-url');
       urlInput.value = dataUrl;
       urlInput.dispatchEvent(new Event('input'));
       hint.textContent = 'Imagem carregada. Clique em "Salvar apresentação" para confirmar.';
-    }catch(err){
-      console.error('Erro ao processar foto de perfil:', err);
-      hint.textContent = 'Erro ao processar imagem: ' + err.message;
-      toast('Erro ao processar imagem: ' + err.message, true);
-    }
+    });
   });
 
-  document.getElementById('my-banner-file').addEventListener('change', async (e) => {
+  document.getElementById('my-banner-file').addEventListener('change', (e) => {
     const file = e.target.files[0];
+    e.target.value = '';
     if(!file || !currentUser) return;
     const hint = document.getElementById('my-banner-upload-hint');
-    hint.textContent = 'Processando imagem...';
-    try{
-      const dataUrl = await resizeImageToDataURL(file, 900, 0.78);
+    openCropModal(file, 'banner', (dataUrl) => {
       const urlInput = document.getElementById('my-banner-url');
       urlInput.value = dataUrl;
       urlInput.dispatchEvent(new Event('input'));
       hint.textContent = 'Banner carregado. Clique em "Salvar apresentação" para confirmar.';
-    }catch(err){
-      console.error('Erro ao processar banner:', err);
-      hint.textContent = 'Erro ao processar imagem: ' + err.message;
-      toast('Erro ao processar imagem: ' + err.message, true);
-    }
+    });
   });
 
   document.getElementById('save-profile-btn').addEventListener('click', async () => {
@@ -1119,22 +1225,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       if(url){ preview.style.backgroundImage = `url('${url.replace(/'/g,"%27")}')`; preview.textContent = ''; }
       else { preview.style.backgroundImage = 'none'; preview.textContent = (document.getElementById('detail-edit-name').value||'?').slice(0,1).toUpperCase(); }
     });
-    document.getElementById('detail-edit-photo-file').addEventListener('change', async (e) => {
+    document.getElementById('detail-edit-photo-file').addEventListener('change', (e) => {
       const file = e.target.files[0];
+      e.target.value = '';
       if(!file) return;
       const hint = document.getElementById('detail-photo-upload-hint');
-      hint.textContent = 'Processando imagem...';
-      try{
-        const dataUrl = await resizeImageToDataURL(file);
+      openCropModal(file, 'avatar', (dataUrl) => {
         const photoInput = document.getElementById('detail-edit-photo');
         photoInput.value = dataUrl;
         photoInput.dispatchEvent(new Event('input'));
         hint.textContent = 'Imagem carregada. Clique em "Salvar perfil" para confirmar.';
-      }catch(err){
-        console.error('Erro ao processar imagem do personagem:', err);
-        hint.textContent = 'Erro ao processar imagem: ' + err.message;
-        toast('Erro ao processar imagem: ' + err.message, true);
-      }
+      });
     });
     document.getElementById('detail-edit-isalt').addEventListener('change', (e) => {
       document.getElementById('detail-edit-altof-wrap').style.display = e.target.checked ? '' : 'none';
@@ -1994,7 +2095,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeDrawer(btn.dataset.close));
   });
-  ['char-drawer','detail-drawer','req-drawer','profile-drawer','char-profile-drawer','player-view-drawer','badge-inspect-drawer'].forEach(id => {
+  ['char-drawer','detail-drawer','req-drawer','profile-drawer','char-profile-drawer','player-view-drawer','badge-inspect-drawer','crop-drawer'].forEach(id => {
     document.getElementById(id + '-backdrop').addEventListener('click', () => closeDrawer(id));
   });
 
