@@ -153,6 +153,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   let unsubBadges = null;
   let unsubFeed = null;
   let lastFeedIds = new Set();     // pra animar só os itens novos que chegam
+  let presenceTimer = null;
+  const feedReactionUnsubs = new Map(); // feedId -> unsub, pra não vazar listener a cada render
+  let prevMyBadgeIds = null;       // pra detectar badge nova e disparar confete
+  let prevCharPatentes = new Map();// charId -> patente anterior, pra detectar promoção
   let prevRankOrder = [];
   let staffSubsActive = false;
   let allBadges = [];              // catálogo global de badges: [{id, name, emoji, anim, color}]
@@ -365,10 +369,33 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     subscribeRanking();
     subscribeBadges();
     subscribeFeed();
+    startPresenceHeartbeat();
 
     updateStaffAccess();
     if(!isAdmin(user.uid)) console.info('Seu UID (caso precise virar staff):', user.uid);
   });
+
+  // marca lastActive no próprio documento enquanto a aba estiver aberta e
+  // visível — sinal real de presença, não decorativo. Qualquer jogador já
+  // pode escrever no próprio doc (regra do Firestore só bloqueia ppTotal/isStaff).
+  function startPresenceHeartbeat(){
+    const beat = () => {
+      if(!currentUser || document.visibilityState !== 'visible') return;
+      updateDoc(doc(db, 'players', currentUser.uid), { lastActive: serverTimestamp() }).catch(() => {});
+    };
+    beat();
+    stopPresenceHeartbeat();
+    presenceTimer = setInterval(beat, 3 * 60 * 1000);
+    document.addEventListener('visibilitychange', beat);
+  }
+  function stopPresenceHeartbeat(){
+    if(presenceTimer) clearInterval(presenceTimer);
+    presenceTimer = null;
+  }
+  function isOnline(p){
+    if(!p || !p.lastActive || !p.lastActive.toDate) return false;
+    return (Date.now() - p.lastActive.toDate().getTime()) < 5 * 60 * 1000;
+  }
 
   function cleanupSubscriptions(){
     if(unsubCharacters) unsubCharacters();
@@ -380,9 +407,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     unsubBadges = null;
     if(unsubFeed) unsubFeed();
     unsubFeed = null;
+    feedReactionUnsubs.forEach(unsub => unsub());
+    feedReactionUnsubs.clear();
   }
 
   function renderLoggedOut(){
+    stopPresenceHeartbeat();
     document.getElementById('login-gate').style.display = 'flex';
     document.getElementById('navbar').style.display = 'none';
     document.getElementById('bottom-nav').classList.remove('visible');
@@ -394,6 +424,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     prevRankOrder = []; staffSubsActive = false;
     allBadges = []; lastRankingPlayers = []; selectedDisplayBadges = [];
     lastFeedIds = new Set();
+    prevMyBadgeIds = null;
+    prevCharPatentes = new Map();
   }
 
   // ================= RANKING (visível a todos os agentes) =================
@@ -440,7 +472,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         : '';
       item.innerHTML = `
         <div class="rank-pos">${crown}${rank}º</div>
-        <div class="rank-avatar" ${avatarStyle}>${avatarInitial}</div>
+        <div class="rank-avatar" ${avatarStyle}>${avatarInitial}${isOnline(p) ? '<span class="presence-dot" title="Ativo agora"></span>' : ''}</div>
         <div class="rank-main">
           <div class="rank-name"><span class="rank-name-text">${escapeHtml(p.displayName || p.email || 'Agente')}</span>${badgesHTML}</div>
           <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%"></div></div>
@@ -502,6 +534,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   function renderFeed(events){
     const el = document.getElementById('feed-list');
     if(!el) return;
+    feedReactionUnsubs.forEach(unsub => unsub());
+    feedReactionUnsubs.clear();
     if(events.length === 0){ el.innerHTML = '<div class="empty-hint">Ainda não rolou nada por aqui. As conquistas da mesa vão aparecer neste mural.</div>'; return; }
     el.innerHTML = '';
     events.forEach((ev, idx) => {
@@ -519,11 +553,37 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
           <div class="feed-text">${feedItemText(ev)}</div>
           <div class="feed-time">${feedRelativeTime(ev.createdAt)}</div>
         </div>
+        <button class="feed-react-btn" data-feed-id="${ev.id}" title="Comemorar">🎉 <span class="count">0</span></button>
       `;
       el.appendChild(item);
+      wireFeedReaction(item.querySelector('.feed-react-btn'), ev.id);
     });
     lastFeedIds = new Set(events.map(e => e.id));
   }
+
+  // reação simples (🎉) por evento: 1 doc por usuário em feed/{id}/reactions/{uid}.
+  // exige a regra: match /feed/{id}/reactions/{uid} { allow read: if isSignedIn(); allow write: if isOwner(uid); }
+  function wireFeedReaction(btn, feedId){
+    if(!btn) return;
+    const reactionsRef = collection(db, 'feed', feedId, 'reactions');
+    let reacted = false;
+    const unsub = onSnapshot(reactionsRef, (snap) => {
+      btn.querySelector('.count').textContent = snap.size;
+      reacted = currentUser ? snap.docs.some(d => d.id === currentUser.uid) : false;
+      btn.classList.toggle('reacted', reacted);
+    }, () => { btn.style.display = 'none'; });
+    feedReactionUnsubs.set(feedId, unsub);
+    btn.addEventListener('click', async () => {
+      if(!currentUser) return;
+      const mine = doc(db, 'feed', feedId, 'reactions', currentUser.uid);
+      try{
+        if(reacted) await deleteDoc(mine);
+        else await setDoc(mine, { createdAt: serverTimestamp() });
+      }catch(e){ toast('Erro ao reagir: ' + e.message, true); }
+    });
+  }
+
+
 
   function feedRelativeTime(ts){
     if(!ts || !ts.toDate) return 'agora há pouco';
@@ -545,12 +605,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     const birthdayLine = formatBirthdayLine(player.birthday);
     const avatarStyle = player.photoURL ? `style="background-image:url('${escapeHtml(player.photoURL)}')"` : '';
     const avatarInitial = player.photoURL ? '' : escapeHtml((player.displayName || player.email || '?').slice(0,1).toUpperCase());
+    const bannerStyle = player.bannerURL ? `style="background-image:url('${escapeHtml(player.bannerURL)}')"` : '';
+    const onlineNow = isOnline(player);
     const ownedIds = Object.keys(player.badges || {});
     const badgesSectionHTML = ownedIds.length
       ? `<div class="badge-row" style="justify-content:center; margin-top:0.6rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id), '', player.badges[id] && player.badges[id].awardedAt)).join('')}</div>`
       : '<div class="empty-hint">Nenhuma badge conquistada ainda.</div>';
     body.innerHTML = `
-      <div class="char-avatar-lg" ${avatarStyle}>${avatarInitial}</div>
+      <div class="profile-banner" ${bannerStyle}></div>
+      <div class="char-avatar-lg profile-avatar-overlap" ${avatarStyle}>${avatarInitial}${onlineNow ? '<span class="presence-dot lg" title="Ativo agora"></span>' : ''}</div>
+      <div class="presence-label">${onlineNow ? 'Ativo agora' : (player.lastActive ? 'Visto ' + feedRelativeTime(player.lastActive) : '')}</div>
       <div class="stat-grid"><div class="stat-box"><div class="label">Prestígio (PP)</div><div class="value">${player.ppTotal || 0}</div></div></div>
       ${birthdayLine ? `<div class="field-hint" style="text-align:center; margin-top:0.7rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
       <div class="section-label" style="margin-top:1.1rem;">Badges</div>
@@ -697,6 +761,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     document.getElementById('my-photo-url').value = photoURL;
     document.getElementById('my-photo-upload-hint').textContent = 'Envie uma imagem (JPG, PNG, etc.). Ela substitui a foto atual.';
     updateMyAvatarPreview(photoURL);
+    const bannerURL = (myPlayerDoc && myPlayerDoc.bannerURL) ? myPlayerDoc.bannerURL : '';
+    document.getElementById('my-banner-url').value = bannerURL;
+    updateMyBannerPreview(bannerURL);
     selectedDisplayBadges = ((myPlayerDoc && myPlayerDoc.displayBadges) || []).filter(id => myPlayerDoc && myPlayerDoc.badges && myPlayerDoc.badges[id]);
     renderMyBadgeSelect();
     openDrawer('profile-drawer');
@@ -750,9 +817,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     }
   }
 
+  function updateMyBannerPreview(url){
+    const preview = document.getElementById('my-banner-preview');
+    if(!preview) return;
+    preview.style.backgroundImage = url ? `url('${url.replace(/'/g,"%27")}')` : 'none';
+  }
+
   document.getElementById('edit-profile-btn').addEventListener('click', openMyProfileDrawer);
 
   document.getElementById('my-photo-url').addEventListener('input', (e) => updateMyAvatarPreview(e.target.value.trim()));
+  document.getElementById('my-banner-url').addEventListener('input', (e) => updateMyBannerPreview(e.target.value.trim()));
 
   document.getElementById('my-photo-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -772,15 +846,34 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     }
   });
 
+  document.getElementById('my-banner-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file || !currentUser) return;
+    const hint = document.getElementById('my-banner-upload-hint');
+    hint.textContent = 'Processando imagem...';
+    try{
+      const dataUrl = await resizeImageToDataURL(file, 900, 0.78);
+      const urlInput = document.getElementById('my-banner-url');
+      urlInput.value = dataUrl;
+      urlInput.dispatchEvent(new Event('input'));
+      hint.textContent = 'Banner carregado. Clique em "Salvar apresentação" para confirmar.';
+    }catch(err){
+      console.error('Erro ao processar banner:', err);
+      hint.textContent = 'Erro ao processar imagem: ' + err.message;
+      toast('Erro ao processar imagem: ' + err.message, true);
+    }
+  });
+
   document.getElementById('save-profile-btn').addEventListener('click', async () => {
     if(!currentUser) return;
     const bio = document.getElementById('my-bio-input').value.trim();
     const displayName = document.getElementById('my-displayname-input').value.trim();
     const photoURL = document.getElementById('my-photo-url').value.trim();
+    const bannerURL = document.getElementById('my-banner-url').value.trim();
     const birthday = document.getElementById('my-birthday-input').value;
     if(!displayName){ toast('O nome exibido não pode ficar em branco.', true); return; }
     try{
-      await updateDoc(doc(db, 'players', currentUser.uid), { bio, displayName, photoURL, birthday, displayBadges: selectedDisplayBadges });
+      await updateDoc(doc(db, 'players', currentUser.uid), { bio, displayName, photoURL, bannerURL, birthday, displayBadges: selectedDisplayBadges });
       closeDrawer('profile-drawer');
       toast('Apresentação salva.');
     }catch(e){ toast('Erro: ' + e.message, true); }
@@ -808,7 +901,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       await updateDoc(ref, { googleDisplayName: user.displayName || '', googlePhotoURL: user.photoURL || '' });
     }
     onSnapshot(ref, (s) => {
-      myPlayerDoc = s.data();
+      const fresh = s.data();
+      const newIds = Object.keys(fresh.badges || {});
+      if(prevMyBadgeIds !== null){
+        const added = newIds.filter(id => !prevMyBadgeIds.includes(id));
+        if(added.length){
+          const b = getBadge(added[0]);
+          fireConfetti();
+          toast(`Nova badge: ${b ? b.name : 'conquista'}! 🎉`);
+        }
+      }
+      prevMyBadgeIds = newIds;
+      myPlayerDoc = fresh;
       renderEconomy(); renderCharGrid(); renderMyBio();
       updateStaffAccess();
       const nameEl = document.querySelector('#account-box .user-chip .name');
@@ -820,6 +924,40 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         else { avEl.style.backgroundImage = 'none'; avEl.textContent = (myPlayerDoc.displayName || user.displayName || '?').slice(0,1).toUpperCase(); }
       }
     });
+  }
+
+  // ---- confete leve, sem dependência externa (vanilla canvas) ----
+  function fireConfetti(){
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'confetti-canvas';
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    const colors = ['#e0759e', '#8fd7e8', '#d9c07f', '#7fb98a', '#ff9f6b'];
+    const pieces = Array.from({ length: 90 }, () => ({
+      x: Math.random() * canvas.width, y: -20 - Math.random() * canvas.height * 0.3,
+      w: 6 + Math.random() * 5, h: 8 + Math.random() * 6,
+      vy: 2.4 + Math.random() * 2.6, vx: -1.4 + Math.random() * 2.8,
+      rot: Math.random() * Math.PI, vr: -0.2 + Math.random() * 0.4,
+      color: colors[Math.floor(Math.random() * colors.length)]
+    }));
+    let frame = 0;
+    function tick(){
+      frame++;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      pieces.forEach(p => {
+        p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        ctx.save();
+        ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      if(frame < 150) requestAnimationFrame(tick);
+      else canvas.remove();
+    }
+    requestAnimationFrame(tick);
   }
 
   // ================= NAV =================
@@ -837,6 +975,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     const ref = collection(db, 'players', uid, 'characters');
     unsubCharacters = onSnapshot(ref, (snap) => {
       myCharacters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      myCharacters.forEach(c => {
+        const prev = prevCharPatentes.get(c.id);
+        if(prev !== undefined && prev !== (c.patente || 'recruta')){
+          fireConfetti();
+          toast(`${c.name} subiu de patente! 🎖️`);
+        }
+        prevCharPatentes.set(c.id, c.patente || 'recruta');
+      });
       renderCharGrid();
       renderEconomy();
       populateCharSelects();
@@ -850,11 +996,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   function renderCharGrid(){
     const grid = document.getElementById('char-grid');
     grid.innerHTML = '';
-    myCharacters.forEach(c => {
+    myCharacters.forEach((c, idx) => {
       const info = nextLevelInfo(c.peTotal || 0);
       const pat = patenteAtual(c.patente || 'recruta');
       const card = document.createElement('div');
-      card.className = 'char-card' + (c.seasonMaxed ? ' maxed' : '');
+      card.className = 'char-card card-enter' + (c.seasonMaxed ? ' maxed' : '');
+      card.style.animationDelay = `${Math.min(idx * 60, 400)}ms`;
       const pct = info.isMax ? 100 : Math.min(100, Math.round((info.progress / info.needed) * 100));
       const avatarStyle = c.photoURL ? `style="background-image:url('${escapeHtml(c.photoURL)}')"` : '';
       const avatarInitial = c.photoURL ? '' : escapeHtml((c.name||'?').slice(0,1).toUpperCase());
