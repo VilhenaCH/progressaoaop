@@ -526,7 +526,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       return `<strong>${who}</strong> alcançou a patente <em>${escapeHtml(ev.patenteLabel || '')}</em>${ev.charName ? ` com <em>${escapeHtml(ev.charName)}</em>` : ''}`;
     }
     if(ev.type === 'resgate'){
-      return `<strong>${who}</strong> resgatou <em>${escapeHtml(ev.reqLabel || 'uma recompensa')}</em>${ev.charName ? ` para <em>${escapeHtml(ev.charName)}</em>` : ''}`;
+      const parts = [];
+      if(ev.ppAmount) parts.push(`${ev.ppAmount} PP`);
+      if(ev.peAmount) parts.push(`${ev.peAmount} PE`);
+      const amounts = parts.length ? parts.join(' e ') : 'uma recompensa';
+      const gmNote = ev.gmBonus ? ` <span style="opacity:0.75;">(inclui ${ev.gmBonus} PE de mestragem)</span>` : '';
+      return `<strong>${who}</strong> resgatou <em>${amounts}</em>${gmNote} — ${escapeHtml(ev.reqLabel || '')}${ev.charName ? ` para <em>${escapeHtml(ev.charName)}</em>` : ''}`;
     }
     return `<strong>${who}</strong> teve uma atualização`;
   }
@@ -890,6 +895,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         photoURL: user.photoURL || '',
         googlePhotoURL: user.photoURL || '',
         ppTotal: 0,
+        gmPeCredits: 0,
         badges: {},
         displayBadges: [],
         createdAt: serverTimestamp()
@@ -1191,68 +1197,126 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   function updateReqFields(){
     const type = document.getElementById('req-type-select').value;
     const fields = document.getElementById('req-fields');
+    const charWrap = document.getElementById('req-char-wrap');
+    const noteLabel = document.getElementById('req-note-label');
     const charId = document.getElementById('req-char-select').value;
     const c = myCharacters.find(x => x.id === charId);
     const hint = document.getElementById('req-limit-hint');
+    const gmCredits = (myPlayerDoc && myPlayerDoc.gmPeCredits) || 0;
 
-    if(type === 'convert_pp_pe'){
+    charWrap.style.display = (type === 'sessao_mestre') ? 'none' : '';
+    noteLabel.textContent = 'Detalhes / origem';
+
+    if(type === 'sessao_mestre'){
       fields.innerHTML = `
+        <label>Sistema da sessão</label>
+        <select id="req-system-select">
+          <option value="ordem">Ordem Paranormal — +40 PP e +1 PE extra para o próximo Resgate de Sessão (Jogador)</option>
+          <option value="outro">Outro sistema — +80 PP</option>
+        </select>
+        <label>Data da sessão</label>
+        <input type="date" id="req-session-date">
+        <label>Jogadores presentes</label>
+        <input type="text" id="req-session-players" placeholder="Ex: Fulano, Ciclano, Beltrano">
+        <label>Nome da mesa</label>
+        <input type="text" id="req-table-name" placeholder="Ex: Barcelos — A Chuva Que Não Para">
+      `;
+      hint.textContent = 'O PE extra fica guardado e é aplicado automaticamente no seu próximo Resgate de Sessão (Jogador).';
+    } else if(type === 'sessao_jogador'){
+      fields.innerHTML = `
+        <label>Sistema da sessão</label>
+        <select id="req-system-select">
+          <option value="ordem">Ordem Paranormal — +40 PP e +1 PE para o personagem</option>
+          <option value="outro">Outro sistema — +80 PP</option>
+        </select>
+        <label>Data da sessão</label>
+        <input type="date" id="req-session-date">
+        <label>Mestre da sessão</label>
+        <input type="text" id="req-session-gm" placeholder="Ex: Fulano">
+        <label>Nome da mesa</label>
+        <input type="text" id="req-table-name" placeholder="Ex: Barcelos — A Chuva Que Não Para">
+      `;
+      hint.textContent = gmCredits > 0
+        ? `Você tem ${gmCredits} PE extra de mestragem disponível — será aplicado automaticamente neste resgate.`
+        : 'Esse resgate conta como sessão jogada e já libera +1 conversão de Prestígio em PE para este personagem.';
+    } else if(type === 'convert_pp_pe'){
+      const available = myPlayerDoc ? (myPlayerDoc.ppTotal || 0) : 0;
+      fields.innerHTML = `
+        <div class="field-hint" style="margin-bottom:0.6rem;">Prestígio disponível: <b>${available} PP</b></div>
         <label>Quantidade de PP a converter (200 PP = 1 PE)</label>
-        <input type="number" id="req-pp-amount" min="200" step="200" value="200">
+        <input type="number" id="req-pp-amount" min="200" step="200" value="200" max="${Math.max(200, Math.floor(available/200)*200)}">
       `;
       const used = c ? (c.ppConversionsUsed||0) : 0;
       const sessions = c ? (c.sessionsCount||0) : 0;
-      hint.textContent = `Limite: 1 PE extra por sessão jogada. Você já usou ${used} de ${sessions} conversões disponíveis.`;
+      hint.textContent = `Limite: 1 PE extra por sessão jogada. Você já usou ${used} de ${sessions} conversões disponíveis para este personagem.`;
     } else if(type === 'patente'){
       const info = c ? nextLevelInfo(c.peTotal||0) : null;
       const next = c ? proximaPatente(info.level, c.patente||'recruta') : null;
       fields.innerHTML = `<div class="field-hint">${next ? `Próxima patente disponível: <b>${next.label}</b> (requer nível ${next.minLevel} + ${next.cost} PP).` : 'Nenhuma patente pendente ou personagem ainda não tem nível suficiente.'}</div>`;
       hint.textContent = '';
-    } else if(type === 'loja'){
-      fields.innerHTML = `<label>Quantidade de PP</label><input type="number" id="req-pp-amount" min="1" value="0">`;
-      hint.textContent = '';
     } else {
       fields.innerHTML = `<label>PE solicitado</label><input type="number" id="req-pe-amount" min="0" value="0">
-        <label>PP solicitado</label><input type="number" id="req-pp-amount2" min="0" value="0">
-        <div class="checkbox-row">
-          <input type="checkbox" id="req-counts-session">
-          <label style="margin:0;" for="req-counts-session">Foi de uma sessão jogada (libera +1 conversão PP→PE e +1 PE de narração ao ser aprovado)</label>
-        </div>`;
-      hint.textContent = 'Use para registrar resgate de recompensa de sessão, aposta, etc.';
+        <label>PP solicitado</label><input type="number" id="req-pp-amount2" min="0" value="0">`;
+      noteLabel.textContent = 'Motivo (obrigatório)';
+      hint.textContent = 'Use para pedidos fora do padrão: recompensa especial, aposta, correção, etc.';
     }
   }
 
   document.getElementById('submit-req-btn').addEventListener('click', async () => {
+    const type = document.getElementById('req-type-select').value;
     const charId = document.getElementById('req-char-select').value;
     const c = myCharacters.find(x => x.id === charId);
-    if(!c){ toast('Selecione um personagem.', true); return; }
-    const type = document.getElementById('req-type-select').value;
     const note = document.getElementById('req-note').value.trim();
-    let payload = { uid: currentUser.uid, charId, charName: c.name, type, note, status: 'pendente', createdAt: serverTimestamp() };
+    let payload = { uid: currentUser.uid, type, note, status: 'pendente', createdAt: serverTimestamp() };
 
-    if(type === 'convert_pp_pe'){
+    if(type === 'sessao_mestre'){
+      const system = document.getElementById('req-system-select').value;
+      const sessionDate = document.getElementById('req-session-date').value;
+      const players = document.getElementById('req-session-players').value.trim();
+      const tableName = document.getElementById('req-table-name').value.trim();
+      if(!sessionDate || !players || !tableName){ toast('Preencha data, jogadores e nome da mesa.', true); return; }
+      payload.charId = null; payload.charName = null;
+      payload.system = system;
+      payload.ppAmount = system === 'ordem' ? 40 : 80;
+      payload.peExtraGranted = system === 'ordem' ? 1 : 0;
+      payload.sessionDate = sessionDate; payload.players = players; payload.tableName = tableName;
+    } else if(type === 'sessao_jogador'){
+      if(!c){ toast('Selecione um personagem.', true); return; }
+      const system = document.getElementById('req-system-select').value;
+      const sessionDate = document.getElementById('req-session-date').value;
+      const gmName = document.getElementById('req-session-gm').value.trim();
+      const tableName = document.getElementById('req-table-name').value.trim();
+      if(!sessionDate || !gmName || !tableName){ toast('Preencha data, mestre e nome da mesa.', true); return; }
+      payload.charId = charId; payload.charName = c.name;
+      payload.system = system;
+      payload.ppAmount = system === 'ordem' ? 40 : 80;
+      payload.peAmount = system === 'ordem' ? 1 : 0;
+      payload.sessionDate = sessionDate; payload.gmName = gmName; payload.tableName = tableName;
+    } else if(type === 'convert_pp_pe'){
+      if(!c){ toast('Selecione um personagem.', true); return; }
       const pp = parseInt(document.getElementById('req-pp-amount').value || '0', 10);
       if(pp < 200 || pp % 200 !== 0){ toast('Informe um múltiplo de 200 PP.', true); return; }
       const peGain = pp / 200;
       const used = c.ppConversionsUsed || 0;
       const sessions = c.sessionsCount || 0;
       if(used + peGain > sessions){ toast('Limite de conversões excedido para as sessões já jogadas.', true); return; }
+      payload.charId = charId; payload.charName = c.name;
       payload.ppAmount = pp; payload.peAmount = peGain;
     } else if(type === 'patente'){
+      if(!c){ toast('Selecione um personagem.', true); return; }
       const info = nextLevelInfo(c.peTotal||0);
       const next = proximaPatente(info.level, c.patente||'recruta');
       if(!next){ toast('Nenhuma patente disponível para solicitar.', true); return; }
       if(info.level < next.minLevel){ toast('Nível insuficiente para essa patente.', true); return; }
+      payload.charId = charId; payload.charName = c.name;
       payload.ppAmount = next.cost; payload.patenteKey = next.key; payload.patenteLabel = next.label;
-    } else if(type === 'loja'){
-      const pp = parseInt(document.getElementById('req-pp-amount').value || '0', 10);
-      if(pp <= 0){ toast('Informe uma quantidade de PP válida.', true); return; }
-      payload.ppAmount = pp;
     } else {
+      if(!c){ toast('Selecione um personagem.', true); return; }
+      if(!note){ toast('Descreva o motivo do resgate personalizado.', true); return; }
       const pe = parseInt(document.getElementById('req-pe-amount').value || '0', 10);
       const pp = parseInt(document.getElementById('req-pp-amount2').value || '0', 10);
-      const countsSession = document.getElementById('req-counts-session').checked;
-      payload.peAmount = pe; payload.ppAmount = pp; payload.countsSession = countsSession;
+      payload.charId = charId; payload.charName = c.name;
+      payload.peAmount = pe; payload.ppAmount = pp;
     }
 
     await addDoc(collection(db, 'redemptions'), payload);
@@ -1270,7 +1334,27 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   }
 
   function reqLabel(type){
-    return { convert_pp_pe:'Conversão PP → PE', patente:'Aquisição de patente', loja:'Compra na loja', outro:'Outro / resgate' }[type] || type;
+    return {
+      sessao_mestre:'Resgate de Sessão (Mestre)', sessao_jogador:'Resgate de Sessão (Jogador)',
+      convert_pp_pe:'Conversão de PE Avulsa', patente:'Aquisição de patente', personalizado:'Resgate Personalizado'
+    }[type] || type;
+  }
+
+  function reqDetailHTML(r){
+    const parts = [];
+    if(r.ppAmount) parts.push(`${r.ppAmount} PP`);
+    if(r.peAmount) parts.push(`${r.peAmount} PE`);
+    let amounts = parts.join(' &nbsp; ');
+    if(r.patenteLabel) amounts += ` — ${escapeHtml(r.patenteLabel)}`;
+    const meta = [];
+    if(r.system) meta.push(r.system === 'ordem' ? 'Ordem Paranormal' : 'Outro sistema');
+    if(r.tableName) meta.push(escapeHtml(r.tableName));
+    if(r.sessionDate) meta.push(new Date(r.sessionDate + 'T00:00:00').toLocaleDateString('pt-BR'));
+    if(r.gmName) meta.push(`Mestre: ${escapeHtml(r.gmName)}`);
+    if(r.players) meta.push(`Jogadores: ${escapeHtml(r.players)}`);
+    if(r.peExtraGranted) meta.push('+1 PE extra guardado');
+    const metaHTML = meta.length ? `<div class="req-note" style="opacity:0.8;">${meta.join(' · ')}</div>` : '';
+    return `<div class="req-amounts">${amounts}</div>${metaHTML}`;
   }
 
   function renderMyRequests(){
@@ -1284,11 +1368,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         <div class="req-top">
           <div>
             <div class="req-type">${reqLabel(r.type)}</div>
-            <div class="req-char">${escapeHtml(r.charName||'')}</div>
+            ${r.charName ? `<div class="req-char">${escapeHtml(r.charName)}</div>` : ''}
           </div>
           <span class="status-badge status-${r.status}">${r.status}</span>
         </div>
-        <div class="req-amounts">${r.peAmount ? r.peAmount + ' PE &nbsp;' : ''}${r.ppAmount ? r.ppAmount + ' PP' : ''}${r.patenteLabel ? ' — ' + r.patenteLabel : ''}${r.countsSession ? ' <span class="alt-badge" style="color:var(--safe); border-color:#3a5a3f;">Sessão jogada</span>' : ''}</div>
+        ${reqDetailHTML(r)}
         ${r.note ? `<div class="req-note">${escapeHtml(r.note)}</div>` : ''}
         ${r.staffNote ? `<div class="req-note">Staff: ${escapeHtml(r.staffNote)}</div>` : ''}
       `;
@@ -1326,15 +1410,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     list.forEach(r => {
       const card = document.createElement('div');
       card.className = 'req-card';
+      const p = playerLookup(r.uid);
+      const who = (p && (p.displayName || p.email)) || r.uid;
       card.innerHTML = `
         <div class="req-top">
           <div>
             <div class="req-type">${reqLabel(r.type)}</div>
-            <div class="req-char">${escapeHtml(r.charName||'')} — jogador: ${escapeHtml(r.uid)}</div>
+            <div class="req-char">${r.charName ? escapeHtml(r.charName) + ' — ' : ''}jogador: ${escapeHtml(who)}</div>
           </div>
           <span class="status-badge status-${r.status}">${r.status}</span>
         </div>
-        <div class="req-amounts">${r.peAmount ? r.peAmount + ' PE &nbsp;' : ''}${r.ppAmount ? r.ppAmount + ' PP' : ''}${r.patenteLabel ? ' — ' + r.patenteLabel : ''}${r.countsSession ? ' <span class="alt-badge" style="color:var(--safe); border-color:#3a5a3f;">Sessão jogada</span>' : ''}</div>
+        ${reqDetailHTML(r)}
         ${r.note ? `<div class="req-note">${escapeHtml(r.note)}</div>` : ''}
       `;
       const actions = document.createElement('div');
@@ -1355,6 +1441,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 
   async function resolveRequest(r, decision){
     if(!currentUser) return;
+    let txResult = null;
     await runTransaction(db, async (tx) => {
       const reqRef = doc(db, 'redemptions', r.id);
       const reqSnap = await tx.get(reqRef);
@@ -1362,13 +1449,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 
       if(decision === 'aprovado'){
         const playerRef = doc(db, 'players', r.uid);
-        const charRef = doc(db, 'players', r.uid, 'characters', r.charId);
         const playerSnap = await tx.get(playerRef);
-        const charSnap = await tx.get(charRef);
-        if(!playerSnap.exists() || !charSnap.exists()) throw new Error('Jogador ou personagem não encontrado.');
+        if(!playerSnap.exists()) throw new Error('Jogador não encontrado.');
+        const needsChar = r.type !== 'sessao_mestre';
+        const charRef = needsChar ? doc(db, 'players', r.uid, 'characters', r.charId) : null;
+        const charSnap = needsChar ? await tx.get(charRef) : null;
+        if(needsChar && !charSnap.exists()) throw new Error('Personagem não encontrado.');
 
         const charUpdates = {};
         const playerUpdates = {};
+        let gmBonusApplied = 0;
 
         if(r.type === 'convert_pp_pe'){
           const newPp = (playerSnap.data().ppTotal||0) - r.ppAmount;
@@ -1381,18 +1471,28 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
           if(newPp < 0) throw new Error('PP insuficiente.');
           playerUpdates.ppTotal = newPp;
           charUpdates.patente = r.patenteKey;
-        } else if(r.type === 'loja'){
-          const newPp = (playerSnap.data().ppTotal||0) - r.ppAmount;
-          if(newPp < 0) throw new Error('PP insuficiente.');
-          playerUpdates.ppTotal = newPp;
+        } else if(r.type === 'sessao_mestre'){
+          playerUpdates.ppTotal = increment(r.ppAmount);
+          if(r.peExtraGranted) playerUpdates.gmPeCredits = increment(1);
+        } else if(r.type === 'sessao_jogador'){
+          playerUpdates.ppTotal = increment(r.ppAmount);
+          gmBonusApplied = playerSnap.data().gmPeCredits || 0;
+          const peGain = (r.peAmount || 0) + gmBonusApplied;
+          if(peGain) charUpdates.peTotal = increment(peGain);
+          charUpdates.sessionsCount = increment(1);
+          if(gmBonusApplied > 0){
+            charUpdates.gmPeApplied = increment(gmBonusApplied);
+            playerUpdates.gmPeCredits = increment(-gmBonusApplied);
+          }
         } else {
+          // personalizado
           if(r.peAmount) charUpdates.peTotal = increment(r.peAmount);
           if(r.ppAmount) playerUpdates.ppTotal = increment(r.ppAmount);
-          if(r.countsSession) charUpdates.sessionsCount = increment(1);
         }
 
         if(Object.keys(playerUpdates).length) tx.update(playerRef, playerUpdates);
-        if(Object.keys(charUpdates).length) tx.update(charRef, charUpdates);
+        if(needsChar && Object.keys(charUpdates).length) tx.update(charRef, charUpdates);
+        txResult = { gmBonusApplied };
       }
 
       tx.update(reqRef, { status: decision, reviewedBy: currentUser.uid, reviewedAt: serverTimestamp() });
@@ -1404,11 +1504,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         if(r.type === 'patente'){
           publishFeedEvent('patente', { ...base, patenteLabel: r.patenteLabel || '' });
         } else {
-          publishFeedEvent('resgate', { ...base, reqLabel: reqLabel(r.type) });
+          const gmBonus = (txResult && txResult.gmBonusApplied) || 0;
+          publishFeedEvent('resgate', {
+            ...base,
+            reqLabel: reqLabel(r.type),
+            ppAmount: r.ppAmount || 0,
+            peAmount: (r.peAmount || 0) + gmBonus,
+            gmBonus
+          });
         }
       }
     }).catch(e => toast('Erro: ' + e.message, true));
   }
+
 
   function subscribeAllPlayers(){
     unsubAllPlayers = onSnapshot(collection(db, 'players'), async (snap) => {
