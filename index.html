@@ -282,6 +282,30 @@
   </div>
 </div>
 
+<!-- drawer: recorte/posicionamento de imagem (avatar ou banner) -->
+<div class="backdrop" id="crop-drawer-backdrop"></div>
+<div class="drawer" id="crop-drawer">
+  <div class="drawer-header">
+    <div>
+      <div class="eyebrow">Ajustar imagem</div>
+      <h2 id="crop-title">Posicionar foto</h2>
+    </div>
+    <button class="drawer-close" data-close="crop-drawer">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="field-hint" style="margin-bottom:0.7rem;">Arraste a imagem pra posicionar e use o controle abaixo pra dar zoom.</div>
+    <div class="crop-viewport" id="crop-viewport">
+      <img id="crop-img" alt="" draggable="false">
+    </div>
+    <label style="margin-top:1rem;">Zoom</label>
+    <input type="range" id="crop-zoom" min="0" max="100" value="0" step="1">
+    <div class="form-actions">
+      <button class="btn" data-close="crop-drawer">Cancelar</button>
+      <button class="btn primary" id="crop-confirm-btn">Usar essa imagem</button>
+    </div>
+  </div>
+</div>
+
 <!-- drawer: apresentação do jogador -->
 <div class="backdrop" id="profile-drawer-backdrop"></div>
 <div class="drawer" id="profile-drawer">
