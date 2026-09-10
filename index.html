@@ -255,21 +255,24 @@
     <button class="drawer-close" data-close="req-drawer">✕</button>
   </div>
   <div class="drawer-body">
-    <label>Personagem</label>
-    <select id="req-char-select"></select>
-
     <label>Tipo de solicitação</label>
     <select id="req-type-select">
-      <option value="convert_pp_pe">Converter Prestígio em PE (200 PP = 1 PE)</option>
-      <option value="patente">Adquirir patente</option>
-      <option value="loja">Compra na Loja</option>
-      <option value="outro">Outro / resgate de sessão</option>
+      <option value="sessao_mestre">Resgate de Sessão (Mestre)</option>
+      <option value="sessao_jogador">Resgate de Sessão (Jogador)</option>
+      <option value="convert_pp_pe">Conversão de PE Avulsa</option>
+      <option value="patente">Aquisição de patente</option>
+      <option value="personalizado">Resgate Personalizado</option>
     </select>
+
+    <div id="req-char-wrap">
+      <label>Personagem</label>
+      <select id="req-char-select"></select>
+    </div>
 
     <div id="req-fields"></div>
 
-    <label>Detalhes / origem</label>
-    <textarea id="req-note" placeholder="Ex: sessão de 19/08 mestrada por Fulano, aposta, etc."></textarea>
+    <label id="req-note-label">Detalhes / origem</label>
+    <textarea id="req-note" placeholder="Ex: aposta, recompensa especial, correção..."></textarea>
 
     <div class="field-hint" id="req-limit-hint"></div>
 
