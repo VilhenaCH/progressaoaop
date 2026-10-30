@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nexo — Terminal de Progressão</title>
-<meta name="theme-color" content="#0b1014" id="meta-theme-color">
+<title>Nexo — Prestígio</title>
+<meta name="theme-color" content="#0d0a14" id="meta-theme-color">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,26 +14,35 @@
   (function(){
     try{
       var t = localStorage.getItem('nexo-theme');
-      if(t) document.documentElement.setAttribute('data-theme', t);
+      if(t === 'claro') document.documentElement.setAttribute('data-theme', t);
     }catch(e){}
   })();
 </script>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="bank.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+<symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-4 3.2-6 6.5-6s6 2 6.5 6M16 4.5a3.5 3.5 0 010 7M18 14c2 .7 3.3 2.6 3.5 6"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 01-8 0zM8 6H4v1a4 4 0 004 4M16 6h4v1a4 4 0 01-4 4M12 13v4M8 20h8M10 17h4"/></symbol>
+<symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM4 4l16 16"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M17 7L7 17M7 9v8h8"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></symbol>
+</defs></svg>
 
 <div id="topbar">
-  <div class="brand">
-    <div class="eyebrow">Nexo // Ordo Realitas</div>
-    <h1>Terminal de <span>Progressão</span></h1>
-  </div>
+  <div class="brand"><div class="wordmark">nexo</div></div>
   <div id="theme-switcher" role="group" aria-label="Tema">
     <button class="theme-btn" id="theme-toggle-btn" type="button" title="Trocar tema" aria-haspopup="true" aria-expanded="false">🌙</button>
     <div id="theme-menu" class="theme-menu" role="menu" aria-label="Opções de tema">
       <button class="theme-btn theme-option" data-theme="escuro" title="Tema escuro" role="menuitem">🌙</button>
       <button class="theme-btn theme-option" data-theme="claro" title="Tema claro" role="menuitem">☀️</button>
-      <button class="theme-btn theme-option" data-theme="rosa" title="Tema rosa claro" role="menuitem">🌸</button>
-      <button class="theme-btn theme-option" data-theme="rosa-escuro" title="Tema rosa escuro" role="menuitem">💜</button>
     </div>
   </div>
   <div id="account-box"></div>
@@ -49,20 +58,19 @@
 </nav>
 
 <nav id="bottom-nav">
-  <button class="tab-btn bn-btn" data-view="feed"><span class="bn-icon">📡</span><span>Feed</span></button>
-  <button class="tab-btn bn-btn" data-view="personagens"><span class="bn-icon">🗂️</span><span>Fichas</span></button>
-  <button class="tab-btn bn-btn" data-view="economia"><span class="bn-icon">💰</span><span>Economia</span></button>
-  <button class="tab-btn bn-btn" data-view="ranking"><span class="bn-icon">🏆</span><span>Ranking</span></button>
-  <button class="tab-btn bn-btn" data-view="resgates"><span class="bn-icon">🎁</span><span>Resgates</span></button>
-  <button class="tab-btn bn-btn staff" data-view="staff" id="staff-tab-mobile" style="display:none;"><span class="bn-icon">🛡️</span><span>Staff</span></button>
+  <button class="tab-btn bn-btn" data-view="economia"><svg class="ic"><use href="#i-home"/></svg><span>Início</span></button>
+  <button class="tab-btn bn-btn" data-view="resgates"><svg class="ic"><use href="#i-receipt"/></svg><span>Extrato</span></button>
+  <button class="tab-btn bn-btn" data-view="personagens"><svg class="ic"><use href="#i-users"/></svg><span>Fichas</span></button>
+  <button class="tab-btn bn-btn" data-view="ranking"><svg class="ic"><use href="#i-trophy"/></svg><span>Ranking</span></button>
+  <button class="tab-btn bn-btn" data-view="feed"><svg class="ic"><use href="#i-pulse"/></svg><span>Mural</span></button>
+  <button class="tab-btn bn-btn staff" data-view="staff" id="staff-tab-mobile" style="display:none;"><svg class="ic"><use href="#i-shield"/></svg><span>Staff</span></button>
 </nav>
 
 <div id="stage">
 
   <div id="login-gate">
   <div class="panel dossier-frame">
-      <div class="section-label">Acesso restrito</div>
-      <h2>Entre para acessar seu terminal</h2>
+      <h2>Entre na sua conta Nexo</h2>
       <p>Use sua conta Google para carregar seus personagens, acompanhar Pontos de Evolução, Prestígio e solicitar resgates.</p>
       <button class="btn primary" id="login-btn">Entrar com Google</button>
     </div>
@@ -102,14 +110,7 @@
 
   <!-- ECONOMIA -->
   <section class="view" id="view-economia">
-    <div class="panel">
-      <div class="section-label">Banco de Prestígio</div>
-      <h2>Economia do jogador</h2>
-      <div id="economy-stats" class="stat-grid"></div>
-      <div class="field-hint" style="margin-top:0.9rem;">
-        O teto de gasto é recalculado a cada operação: PP total ÷ personagens ativos (personagens em Evolução Máxima da Temporada não contam nesse divisor).
-      </div>
-    </div>
+    <div id="economy-stats"></div>
   </section>
 
   <!-- RANKING -->
@@ -127,7 +128,7 @@
     <div class="panel">
       <div class="section-label">Suas solicitações</div>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
-        <h2 style="margin:0;">Resgates &amp; conversões</h2>
+        <h2 style="margin:0;">Extrato</h2>
         <button class="btn primary" id="new-req-btn">+ Nova solicitação</button>
       </div>
       <div id="req-list" style="margin-top:1rem;"></div>

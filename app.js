@@ -379,8 +379,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   const THEME_META = {
     'escuro': { icon: '🌙', label: 'Tema escuro — toque para trocar' },
     'claro': { icon: '☀️', label: 'Tema claro — toque para trocar' },
-    'rosa': { icon: '🌸', label: 'Tema rosa claro — toque para trocar' },
-    'rosa-escuro': { icon: '💜', label: 'Tema rosa escuro — toque para trocar' }
   };
   function applyTheme(theme){
     if(!THEME_META[theme]) theme = 'escuro';
@@ -1080,7 +1078,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === name));
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   }
-  switchView('feed');
+  switchView('economia');
 
   // ================= CHARACTERS =================
   function subscribeCharacters(uid){
@@ -1265,18 +1263,59 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   }
 
   // ================= ECONOMIA =================
+  const IC = n => `<svg class="ic" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+  const STATUS_LABEL = { pendente:'Pendente', aprovado:'Aprovado', negado:'Negado', cancelado:'Cancelado' };
+  const CREDIT_TYPES = ['sessao_mestre','sessao_jogador','personalizado'];
+  const fmt = n => (n || 0).toLocaleString('pt-BR');
+  let hideBalance = false;
+  try{ hideBalance = localStorage.getItem('nexo-hide') === '1'; }catch(e){}
+
+  // linha de extrato: crédito em verde, débito neutro, pendente em âmbar
+  function txRowHTML(r){
+    const credit = CREDIT_TYPES.includes(r.type);
+    const amt = r.ppAmount ? `${credit ? '+' : '−'}${fmt(r.ppAmount)} PP` : r.peAmount ? `+${fmt(r.peAmount)} PE` : '—';
+    const cls = r.status === 'aprovado' ? (credit ? 'in' : '') : r.status === 'pendente' ? 'pend' : 'off';
+    const ms = r.createdAt && r.createdAt.toMillis ? r.createdAt.toMillis() : 0;
+    const when = ms ? new Date(ms).toLocaleDateString('pt-BR', { day:'2-digit', month:'short' }) : 'agora';
+    return `<div class="tx"><div class="tx-ic ${credit ? 'in' : 'out'}">${IC(credit ? 'down' : 'up')}</div>
+      <div class="tx-main"><div class="tx-t">${reqLabel(r.type)}</div><div class="tx-s">${r.charName ? escapeHtml(r.charName) + ' · ' : ''}${when}</div></div>
+      <div class="tx-v ${cls}">${amt}<small>${STATUS_LABEL[r.status] || r.status}</small></div></div>`;
+  }
+
   function renderEconomy(){
     const el = document.getElementById('economy-stats');
-    if(!myPlayerDoc){ el.innerHTML=''; return; }
-    const ppTotal = myPlayerDoc.ppTotal || 0;
-    const divisor = activeCharCount();
-    const limit = Math.floor(ppTotal / divisor);
+    if(!myPlayerDoc){ el.innerHTML = ''; return; }
+    const pp = myPlayerDoc.ppTotal || 0, n = activeCharCount(), limit = Math.floor(pp / n);
+    const pending = myRequests.filter(r => r.status === 'pendente').length;
+    const mask = v => hideBalance ? '•••••' : fmt(v);
     el.innerHTML = `
-      <div class="stat-box"><div class="label">Prestígio total (PP)</div><div class="value">${ppTotal}</div></div>
-      <div class="stat-box"><div class="label">Personagens ativos</div><div class="value">${divisor}</div><div class="sub">excluindo os em Evolução Máxima</div></div>
-      <div class="stat-box"><div class="label">Teto de gasto por operação</div><div class="value">${limit}</div><div class="sub">PP total ÷ personagens ativos</div></div>
-    `;
+      <div class="bal-card">
+        <div class="bal-top"><span>Saldo de Prestígio</span><button class="eye" id="eye-btn" aria-label="${hideBalance ? 'Mostrar' : 'Ocultar'} saldo">${IC(hideBalance ? 'eye-off' : 'eye')}</button></div>
+        <div class="bal-val">${mask(pp)}<small>PP</small></div>
+        <div class="bal-chips"><span>Teto por operação <b>${mask(limit)}</b></span><span>${n} ${n > 1 ? 'personagens ativos' : 'personagem ativo'}</span>${pending ? `<span>${pending} pendente${pending > 1 ? 's' : ''}</span>` : ''}</div>
+      </div>
+      <div class="qa">
+        <button data-go="new"><i>${IC('plus')}</i>Solicitar</button>
+        <button data-go="resgates"><i>${IC('receipt')}</i>Extrato</button>
+        <button data-go="personagens"><i>${IC('users')}</i>Fichas</button>
+        <button data-go="ranking"><i>${IC('trophy')}</i>Ranking</button>
+      </div>
+      <div class="panel">
+        <div class="sec-head"><h2>Últimas movimentações</h2><button class="link" data-go="resgates">Ver tudo</button></div>
+        ${myRequests.length ? myRequests.slice(0, 5).map(txRowHTML).join('') : '<div class="empty-hint">Nada por aqui ainda. Toque em Solicitar para registrar sua primeira sessão.</div>'}
+      </div>
+      <div class="field-hint">O teto de gasto é recalculado a cada operação: PP total ÷ personagens ativos (quem está em Evolução Máxima não entra na conta).</div>`;
   }
+  document.getElementById('economy-stats').addEventListener('click', (e) => {
+    const b = e.target.closest('#eye-btn, [data-go]');
+    if(!b) return;
+    if(b.id === 'eye-btn'){
+      hideBalance = !hideBalance;
+      try{ localStorage.setItem('nexo-hide', hideBalance ? '1' : '0'); }catch(_){}
+      renderEconomy(); return;
+    }
+    if(b.dataset.go === 'new') document.getElementById('new-req-btn').click(); else switchView(b.dataset.go);
+  });
 
   // ================= REQUESTS (player) =================
   document.getElementById('new-req-btn').addEventListener('click', () => {
@@ -1460,7 +1499,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 
   function renderMyRequests(){
     const list = document.getElementById('req-list');
-    if(myRequests.length === 0){ list.innerHTML = '<div class="empty-hint">Nenhuma solicitação ainda.</div>'; return; }
+    if(myRequests.length === 0){ list.innerHTML = '<div class="empty-hint">Seu extrato está vazio. Toque em Nova solicitação para registrar uma sessão.</div>'; renderEconomy(); return; }
     list.innerHTML = '';
     myRequests.forEach(r => {
       const card = document.createElement('div');
@@ -1471,7 +1510,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
             <div class="req-type">${reqLabel(r.type)}</div>
             ${r.charName ? `<div class="req-char">${escapeHtml(r.charName)}</div>` : ''}
           </div>
-          <span class="status-badge status-${r.status}">${r.status}</span>
+          <span class="status-badge status-${r.status}">${STATUS_LABEL[r.status] || r.status}</span>
         </div>
         ${reqDetailHTML(r)}
         ${r.note ? `<div class="req-note">${escapeHtml(r.note)}</div>` : ''}
@@ -1484,14 +1523,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         cancelBtn.className = 'btn small danger';
         cancelBtn.textContent = 'Cancelar';
         cancelBtn.addEventListener('click', async () => {
-          await updateDoc(doc(db, 'redemptions', r.id), { status: 'cancelado' });
-          toast('Solicitação cancelada.');
+          if(!confirm('Cancelar esta solicitação?')) return;
+          cancelBtn.disabled = true;
+          try{ await updateDoc(doc(db, 'redemptions', r.id), { status: 'cancelado' }); toast('Solicitação cancelada.'); }
+          catch(e){ cancelBtn.disabled = false; toast('Não foi possível cancelar: ' + e.message, true); }
         });
         actions.appendChild(cancelBtn);
         card.appendChild(actions);
       }
       list.appendChild(card);
     });
+    renderEconomy();
   }
 
   // ================= STAFF =================
@@ -1519,7 +1561,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
             <div class="req-type">${reqLabel(r.type)}</div>
             <div class="req-char">${r.charName ? escapeHtml(r.charName) + ' — ' : ''}jogador: ${escapeHtml(who)}</div>
           </div>
-          <span class="status-badge status-${r.status}">${r.status}</span>
+          <span class="status-badge status-${r.status}">${STATUS_LABEL[r.status] || r.status}</span>
         </div>
         ${reqDetailHTML(r)}
         ${r.note ? `<div class="req-note">${escapeHtml(r.note)}</div>` : ''}
@@ -1529,18 +1571,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       const approveBtn = document.createElement('button');
       approveBtn.className = 'btn small primary';
       approveBtn.textContent = 'Aprovar';
-      approveBtn.addEventListener('click', () => resolveRequest(r, 'aprovado'));
+      const run = async (decision, note) => { approveBtn.disabled = denyBtn.disabled = true; await resolveRequest(r, decision, note); approveBtn.disabled = denyBtn.disabled = false; };
+      approveBtn.addEventListener('click', () => run('aprovado'));
       const denyBtn = document.createElement('button');
       denyBtn.className = 'btn small danger';
       denyBtn.textContent = 'Negar';
-      denyBtn.addEventListener('click', () => resolveRequest(r, 'negado'));
+      denyBtn.addEventListener('click', () => { const note = prompt('Motivo da negação (o jogador vai ver):'); if(note !== null) run('negado', note.trim()); });
       actions.appendChild(approveBtn); actions.appendChild(denyBtn);
       card.appendChild(actions);
       el.appendChild(card);
     });
   }
 
-  async function resolveRequest(r, decision){
+  async function resolveRequest(r, decision, staffNote = ''){
     if(!currentUser) return;
     let txResult = null;
     await runTransaction(db, async (tx) => {
@@ -1596,7 +1639,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         txResult = { gmBonusApplied };
       }
 
-      tx.update(reqRef, { status: decision, reviewedBy: currentUser.uid, reviewedAt: serverTimestamp() });
+      tx.update(reqRef, { status: decision, reviewedBy: currentUser.uid, reviewedAt: serverTimestamp(), ...(staffNote ? { staffNote } : {}) });
     }).then(() => {
       toast(decision === 'aprovado' ? 'Solicitação aprovada e aplicada.' : 'Solicitação negada.');
       if(decision === 'aprovado'){
