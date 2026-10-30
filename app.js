@@ -214,14 +214,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 
   function isAdmin(uid){ return ADMIN_UIDS.includes(uid); }
 
-  // custo incremental de PE por nível (nível N precisa desse tanto de PE
-  // além do que já foi gasto pra chegar no nível N-1)
-  function peCostForLevel(level){
-    if(level <= 1) return 0;
-    if(level <= 10) return level - 1; // nível2=1 ... nível10=6 (níveis 8,9,10 ficam fixos em 6 pela tabela)
-    return 7; // 11..20
-  }
-  // a tabela original trava em 6 do nível 6 ao 10, então corrige a regra acima:
   function peCostForLevelFixed(level){
     if(level <= 1) return 0;
     if(level <= 6) return level - 1;   // 2:1 3:2 4:3 5:4 6:5
@@ -268,8 +260,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   let unsubRanking = null;
   let unsubBadges = null;
   let unsubFeed = null;
+  let unsubMyDoc = null;
   let lastFeedIds = new Set();     // pra animar só os itens novos que chegam
   let presenceTimer = null;
+  let presenceVisHandler = null;
   const feedReactionUnsubs = new Map(); // feedId -> unsub, pra não vazar listener a cada render
   let prevMyBadgeIds = null;       // pra detectar badge nova e disparar confete
   let prevCharPatentes = new Map();// charId -> patente anterior, pra detectar promoção
@@ -298,7 +292,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       preview.innerHTML = `<img src="${dataUrl}" alt="preview">`;
       removeBtn.style.display = 'inline-block';
     } else {
-      preview.innerHTML = '🖼️';
+      preview.innerHTML = '<span class="nexo-icon icon-profile" aria-hidden="true"></span>';
       removeBtn.style.display = 'none';
     }
   }
@@ -377,16 +371,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   const THEME_KEY = 'nexo-theme';
   const THEME_ORDER = ['escuro', 'claro', 'rosa', 'rosa-escuro'];
   const THEME_META = {
-    'escuro': { icon: '🌙', label: 'Tema escuro — toque para trocar' },
-    'claro': { icon: '☀️', label: 'Tema claro — toque para trocar' },
+    'escuro': { label: 'Tema atual: escuro. Trocar tema' },
+    'claro': { label: 'Tema atual: claro. Trocar tema' },
+    'rosa': { label: 'Tema atual: rosa. Trocar tema' },
+    'rosa-escuro': { label: 'Tema atual: rosa escuro. Trocar tema' },
   };
   function applyTheme(theme){
-    if(!THEME_META[theme]) theme = 'escuro';
+    if(!THEME_ORDER.includes(theme) || !THEME_META[theme]) theme = 'escuro';
     document.documentElement.setAttribute('data-theme', theme);
     const btn = document.getElementById('theme-toggle-btn');
     if(btn){
       const m = THEME_META[theme];
-      btn.textContent = m.icon;
+      btn.dataset.currentTheme = theme;
       btn.title = m.label;
       btn.setAttribute('aria-label', m.label);
     }
@@ -434,8 +430,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     const admin = !!currentUser && (isAdmin(currentUser.uid) || (myPlayerDoc && myPlayerDoc.isStaff === true));
     const tab = document.getElementById('staff-tab');
     const tabMobile = document.getElementById('staff-tab-mobile');
-    if(tab) tab.style.display = admin ? 'inline-block' : 'none';
-    if(tabMobile) tabMobile.style.display = admin ? 'flex' : 'none';
+    if(tab) tab.style.display = admin ? '' : 'none';
+    if(tabMobile) tabMobile.style.display = admin ? '' : 'none';
     if(admin && !staffSubsActive){
       subscribePendingRequests();
       subscribeAllPlayers();
@@ -465,7 +461,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   });
 
   onAuthStateChanged(auth, async (user) => {
+    const previousUid = currentUser && currentUser.uid;
     currentUser = user;
+    if(previousUid !== (user && user.uid)) myPlayerDoc = null;
     cleanupSubscriptions();
     if(!user){
       renderLoggedOut();
@@ -477,6 +475,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     document.body.classList.add('app-mode');
 
     await ensurePlayerDoc(user);
+    if(!currentUser || currentUser.uid !== user.uid) return;
     renderAccountBox(user);
     subscribeCharacters(user.uid);
     subscribeMyRequests(user.uid);
@@ -493,18 +492,23 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   // visível — sinal real de presença, não decorativo. Qualquer jogador já
   // pode escrever no próprio doc (regra do Firestore só bloqueia ppTotal/isStaff).
   function startPresenceHeartbeat(){
+    stopPresenceHeartbeat();
     const beat = () => {
       if(!currentUser || document.visibilityState !== 'visible') return;
       updateDoc(doc(db, 'players', currentUser.uid), { lastActive: serverTimestamp() }).catch(() => {});
     };
     beat();
-    stopPresenceHeartbeat();
     presenceTimer = setInterval(beat, 3 * 60 * 1000);
-    document.addEventListener('visibilitychange', beat);
+    presenceVisHandler = beat;
+    document.addEventListener('visibilitychange', presenceVisHandler);
   }
   function stopPresenceHeartbeat(){
     if(presenceTimer) clearInterval(presenceTimer);
     presenceTimer = null;
+    if(presenceVisHandler){
+      document.removeEventListener('visibilitychange', presenceVisHandler);
+      presenceVisHandler = null;
+    }
   }
   function isOnline(p){
     if(!p || !p.lastActive || !p.lastActive.toDate) return false;
@@ -512,17 +516,26 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   }
 
   function cleanupSubscriptions(){
+    stopPresenceHeartbeat();
     if(unsubCharacters) unsubCharacters();
     if(unsubRequests) unsubRequests();
     if(unsubPending) unsubPending();
     if(unsubAllPlayers) unsubAllPlayers();
     if(unsubRanking) unsubRanking();
+    if(unsubMyDoc) unsubMyDoc();
+    unsubCharacters = null;
+    unsubRequests = null;
+    unsubPending = null;
+    unsubAllPlayers = null;
+    unsubRanking = null;
+    unsubMyDoc = null;
     if(unsubBadges) unsubBadges();
     unsubBadges = null;
     if(unsubFeed) unsubFeed();
     unsubFeed = null;
     feedReactionUnsubs.forEach(unsub => unsub());
     feedReactionUnsubs.clear();
+    staffSubsActive = false;
   }
 
   function renderLoggedOut(){
@@ -579,7 +592,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       item.style.animationDelay = `${Math.min(idx * 45, 500)}ms`;
       const avatarStyle = p.photoURL ? `style="background-image:url('${escapeHtml(p.photoURL)}')"` : '';
       const avatarInitial = p.photoURL ? '' : escapeHtml((p.displayName || p.email || '?').slice(0,1).toUpperCase());
-      const crown = rank === 1 ? '<span class="rank-crown">👑</span>' : '';
+      const crown = rank === 1 ? '<span class="rank-crown"><span class="nexo-icon icon-trophy" aria-hidden="true"></span></span>' : '';
       const displayIds = (p.displayBadges || []).filter(id => p.badges && p.badges[id]);
       const badgesHTML = displayIds.length
         ? `<span class="badge-row inline">${displayIds.map(id => badgeChipHTML(getBadge(id), ' sm', p.badges && p.badges[id] && p.badges[id].awardedAt)).join('')}</span>`
@@ -623,7 +636,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     });
   }
 
-  const FEED_ICONS = { grant:'✨', badge:'🏅', patente:'⭐', resgate:'🎁' };
+  const FEED_ICON_CLASSES = { grant:'icon-staff', badge:'icon-trophy', patente:'icon-trophy', resgate:'icon-gift' };
 
   function feedItemText(ev){
     const who = escapeHtml(ev.playerName || 'Um agente');
@@ -666,13 +679,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       item.className = 'feed-item' + (isNew && lastFeedIds.size ? ' feed-item-new' : '');
       item.style.animationDelay = `${Math.min(idx * 45, 400)}ms`;
       item.innerHTML = `
-        <div class="feed-icon">${FEED_ICONS[ev.type] || '📌'}</div>
+        <div class="feed-icon"><span class="nexo-icon ${FEED_ICON_CLASSES[ev.type] || 'icon-feed'}" aria-hidden="true"></span></div>
         <div class="rank-avatar feed-avatar" ${avatarStyle}>${avatarInitial}</div>
         <div class="feed-main">
           <div class="feed-text">${feedItemText(ev)}</div>
           <div class="feed-time">${feedRelativeTime(ev.createdAt)}</div>
         </div>
-        <button class="feed-react-btn" data-feed-id="${ev.id}" title="Comemorar">🎉 <span class="count">0</span></button>
+        <button class="feed-react-btn" data-feed-id="${ev.id}" title="Comemorar" aria-label="Comemorar"><span class="nexo-icon icon-confetti" aria-hidden="true"></span><span class="count">0</span></button>
       `;
       el.appendChild(item);
       wireFeedReaction(item.querySelector('.feed-react-btn'), ev.id);
@@ -680,7 +693,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     lastFeedIds = new Set(events.map(e => e.id));
   }
 
-  // reação simples (🎉) por evento: 1 doc por usuário em feed/{id}/reactions/{uid}.
+  // Reação simples por evento: 1 doc por usuário em feed/{id}/reactions/{uid}.
   // exige a regra: match /feed/{id}/reactions/{uid} { allow read: if isSignedIn(); allow write: if isOwner(uid); }
   function wireFeedReaction(btn, feedId){
     if(!btn) return;
@@ -735,7 +748,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       <div class="char-avatar-lg profile-avatar-overlap" ${avatarStyle}>${avatarInitial}${onlineNow ? '<span class="presence-dot lg" title="Ativo agora"></span>' : ''}</div>
       <div class="presence-label">${onlineNow ? 'Ativo agora' : (player.lastActive ? 'Visto ' + feedRelativeTime(player.lastActive) : '')}</div>
       <div class="stat-grid"><div class="stat-box"><div class="label">Prestígio (PP)</div><div class="value">${player.ppTotal || 0}</div></div></div>
-      ${birthdayLine ? `<div class="field-hint" style="text-align:center; margin-top:0.7rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
+      ${birthdayLine ? `<div class="field-hint birthday-line" style="text-align:center; margin-top:0.7rem;"><span class="nexo-icon icon-calendar" aria-hidden="true"></span>${escapeHtml(birthdayLine)}</div>` : ''}
       <div class="section-label" style="margin-top:1.1rem;">Badges</div>
       ${badgesSectionHTML}
       <div class="section-label" style="margin-top:1.1rem;">Apresentação</div>
@@ -865,7 +878,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       ? `<div class="section-label" style="margin-top:0.8rem;">Suas badges</div><div class="badge-row" style="margin-top:0.4rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id), '', myPlayerDoc.badges[id] && myPlayerDoc.badges[id].awardedAt)).join('')}</div>`
       : '';
     box.innerHTML =
-      (birthdayLine ? `<div class="field-hint" style="margin-bottom:0.5rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : '') +
+      (birthdayLine ? `<div class="field-hint birthday-line" style="margin-bottom:0.5rem;"><span class="nexo-icon icon-calendar" aria-hidden="true"></span>${escapeHtml(birthdayLine)}</div>` : '') +
       (bio
         ? `<div class="bio-text">${escapeHtml(bio)}</div>`
         : `<div class="bio-text bio-empty">Você ainda não escreveu sua apresentação. Clique em "Editar apresentação" para contar um pouco sobre você.</div>`) +
@@ -1010,7 +1023,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       // displayName nem photoURL de quem já customizou o perfil)
       await updateDoc(ref, { googleDisplayName: user.displayName || '', googlePhotoURL: user.photoURL || '' });
     }
-    onSnapshot(ref, (s) => {
+    if(!currentUser || currentUser.uid !== user.uid) return;
+    if(unsubMyDoc) unsubMyDoc();
+    unsubMyDoc = onSnapshot(ref, (s) => {
       const fresh = s.data();
       const newIds = Object.keys(fresh.badges || {});
       if(prevMyBadgeIds !== null){
@@ -1018,7 +1033,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         if(added.length){
           const b = getBadge(added[0]);
           fireConfetti();
-          toast(`Nova badge: ${b ? b.name : 'conquista'}! 🎉`);
+          toast(`Nova badge: ${b ? b.name : 'conquista'}!`);
         }
       }
       prevMyBadgeIds = newIds;
@@ -1089,7 +1104,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         const prev = prevCharPatentes.get(c.id);
         if(prev !== undefined && prev !== (c.patente || 'recruta')){
           fireConfetti();
-          toast(`${c.name} subiu de patente! 🎖️`);
+          toast(`${c.name} subiu de patente!`);
         }
         prevCharPatentes.set(c.id, c.patente || 'recruta');
       });
@@ -1296,9 +1311,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       </div>
       <div class="qa">
         <button data-go="new"><i>${IC('plus')}</i>Solicitar</button>
-        <button data-go="resgates"><i>${IC('receipt')}</i>Extrato</button>
-        <button data-go="personagens"><i>${IC('users')}</i>Fichas</button>
-        <button data-go="ranking"><i>${IC('trophy')}</i>Ranking</button>
+        <button data-go="resgates"><i><span class="nexo-icon icon-receipt" aria-hidden="true"></span></i>Extrato</button>
+        <button data-go="personagens"><i><span class="nexo-icon icon-profile" aria-hidden="true"></span></i>Fichas</button>
+        <button data-go="ranking"><i><span class="nexo-icon icon-trophy" aria-hidden="true"></span></i>Ranking</button>
       </div>
       <div class="panel">
         <div class="sec-head"><h2>Últimas movimentações</h2><button class="link" data-go="resgates">Ver tudo</button></div>
@@ -1798,7 +1813,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       <div class="field-hint">Toque em uma badge pra conceder ou remover. As badges concedidas ficam disponíveis pro jogador escolher e exibir no ranking.</div>
       <div class="badge-row" id="staff-player-badges" style="margin-top:0.6rem;"></div>
       <div class="section-label" style="margin-top:1rem;">Apresentação do jogador</div>
-      ${birthdayLine ? `<div class="field-hint">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
+      ${birthdayLine ? `<div class="field-hint birthday-line"><span class="nexo-icon icon-calendar" aria-hidden="true"></span>${escapeHtml(birthdayLine)}</div>` : ''}
       <div class="profile-card">${bio ? `<div class="bio-text">${escapeHtml(bio)}</div>` : '<div class="bio-text bio-empty">Este jogador ainda não escreveu uma apresentação.</div>'}</div>
     `;
     renderStaffPlayerBadges(player);

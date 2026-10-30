@@ -14,7 +14,7 @@
   (function(){
     try{
       var t = localStorage.getItem('nexo-theme');
-      if(t === 'claro') document.documentElement.setAttribute('data-theme', t);
+      if(['escuro','claro','rosa','rosa-escuro'].includes(t)) document.documentElement.setAttribute('data-theme', t);
     }catch(e){}
   })();
 </script>
@@ -39,31 +39,33 @@
 <div id="topbar">
   <div class="brand"><div class="wordmark">nexo</div></div>
   <div id="theme-switcher" role="group" aria-label="Tema">
-    <button class="theme-btn" id="theme-toggle-btn" type="button" title="Trocar tema" aria-haspopup="true" aria-expanded="false">🌙</button>
+    <button class="theme-btn" id="theme-toggle-btn" type="button" title="Trocar tema" aria-label="Trocar tema" aria-haspopup="true" aria-expanded="false"><span class="theme-palette-icon" aria-hidden="true"></span></button>
     <div id="theme-menu" class="theme-menu" role="menu" aria-label="Opções de tema">
-      <button class="theme-btn theme-option" data-theme="escuro" title="Tema escuro" role="menuitem">🌙</button>
-      <button class="theme-btn theme-option" data-theme="claro" title="Tema claro" role="menuitem">☀️</button>
+      <button class="theme-btn theme-option" data-theme="escuro" title="Tema escuro" aria-label="Tema escuro" role="menuitem"></button>
+      <button class="theme-btn theme-option" data-theme="claro" title="Tema claro" aria-label="Tema claro" role="menuitem"></button>
+      <button class="theme-btn theme-option" data-theme="rosa" title="Tema rosa" aria-label="Tema rosa" role="menuitem"></button>
+      <button class="theme-btn theme-option" data-theme="rosa-escuro" title="Tema rosa escuro" aria-label="Tema rosa escuro" role="menuitem"></button>
     </div>
   </div>
   <div id="account-box"></div>
 </div>
 
 <nav id="navbar" style="display:none;">
-  <button class="tab-btn" data-view="feed">Feed</button>
-  <button class="tab-btn" data-view="personagens">Personagens</button>
-  <button class="tab-btn" data-view="economia">Economia</button>
-  <button class="tab-btn" data-view="ranking">Ranking</button>
-  <button class="tab-btn" data-view="resgates">Resgates</button>
-  <button class="tab-btn staff" data-view="staff" id="staff-tab" style="display:none;">Staff</button>
+  <button class="tab-btn" data-view="feed"><span class="nexo-icon icon-feed" aria-hidden="true"></span><span>Mural</span></button>
+  <button class="tab-btn" data-view="personagens"><span class="nexo-icon icon-profile" aria-hidden="true"></span><span>Personagens</span></button>
+  <button class="tab-btn" data-view="economia"><span class="nexo-icon icon-home" aria-hidden="true"></span><span>Início</span></button>
+  <button class="tab-btn" data-view="ranking"><span class="nexo-icon icon-trophy" aria-hidden="true"></span><span>Ranking</span></button>
+  <button class="tab-btn" data-view="resgates"><span class="nexo-icon icon-gift" aria-hidden="true"></span><span>Resgates</span></button>
+  <button class="tab-btn staff" data-view="staff" id="staff-tab" style="display:none;"><span class="nexo-icon icon-staff" aria-hidden="true"></span><span>Staff</span></button>
 </nav>
 
 <nav id="bottom-nav">
-  <button class="tab-btn bn-btn" data-view="economia"><svg class="ic"><use href="#i-home"/></svg><span>Início</span></button>
-  <button class="tab-btn bn-btn" data-view="resgates"><svg class="ic"><use href="#i-receipt"/></svg><span>Extrato</span></button>
-  <button class="tab-btn bn-btn" data-view="personagens"><svg class="ic"><use href="#i-users"/></svg><span>Fichas</span></button>
-  <button class="tab-btn bn-btn" data-view="ranking"><svg class="ic"><use href="#i-trophy"/></svg><span>Ranking</span></button>
-  <button class="tab-btn bn-btn" data-view="feed"><svg class="ic"><use href="#i-pulse"/></svg><span>Mural</span></button>
-  <button class="tab-btn bn-btn staff" data-view="staff" id="staff-tab-mobile" style="display:none;"><svg class="ic"><use href="#i-shield"/></svg><span>Staff</span></button>
+  <button class="tab-btn bn-btn" data-view="economia"><span class="nexo-icon icon-home" aria-hidden="true"></span><span>Início</span></button>
+  <button class="tab-btn bn-btn" data-view="resgates"><span class="nexo-icon icon-receipt" aria-hidden="true"></span><span>Extrato</span></button>
+  <button class="tab-btn bn-btn" data-view="personagens"><span class="nexo-icon icon-profile" aria-hidden="true"></span><span>Fichas</span></button>
+  <button class="tab-btn bn-btn" data-view="ranking"><span class="nexo-icon icon-trophy" aria-hidden="true"></span><span>Ranking</span></button>
+  <button class="tab-btn bn-btn" data-view="feed"><span class="nexo-icon icon-feed" aria-hidden="true"></span><span>Mural</span></button>
+  <button class="tab-btn bn-btn staff" data-view="staff" id="staff-tab-mobile" style="display:none;"><span class="nexo-icon icon-staff" aria-hidden="true"></span><span>Staff</span></button>
 </nav>
 
 <div id="stage">
@@ -180,7 +182,7 @@
       <label>Imagem/GIF personalizado (opcional)</label>
       <div class="field-hint">Envie uma imagem ou GIF do seu dispositivo pra usar como ícone da badge no lugar do emoji (GIFs até ~350KB pra manter a animação).</div>
       <div style="display:flex; align-items:center; gap:0.6rem; margin-top:0.5rem;">
-        <span class="badge-chip" id="badge-icon-preview" style="width:2.4rem; height:2.4rem; font-size:1.1rem;">🖼️</span>
+        <span class="badge-chip" id="badge-icon-preview" style="width:2.4rem; height:2.4rem; font-size:1.1rem;"><span class="nexo-icon icon-profile" aria-hidden="true"></span></span>
         <input type="file" id="badge-icon-file-input" accept="image/*" style="display:none;">
         <button type="button" class="btn small" id="badge-icon-pick-btn">Escolher arquivo</button>
         <button type="button" class="btn small danger" id="badge-icon-remove-btn" style="display:none;">Remover</button>

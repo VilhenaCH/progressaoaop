@@ -196,13 +196,7 @@
       position:relative; border-radius:var(--r-sm); padding:0.5rem 0.2rem; text-align:center;
       display:flex; flex-direction:column; align-items:center; gap:0.3rem; font-size:0.54rem; letter-spacing:0.03em;
     }
-    #navbar .tab-btn::before{ font-size:1.2rem; line-height:1; }
-    #navbar .tab-btn[data-view="feed"]::before{ content:"📡"; }
-    #navbar .tab-btn[data-view="personagens"]::before{ content:"🗂️"; }
-    #navbar .tab-btn[data-view="economia"]::before{ content:"💰"; }
-    #navbar .tab-btn[data-view="ranking"]::before{ content:"🏆"; }
-    #navbar .tab-btn[data-view="resgates"]::before{ content:"🎁"; }
-    #navbar .tab-btn[data-view="staff"]::before{ content:"🛡️"; }
+    #navbar .tab-btn .nexo-icon{ width:25px; height:25px; }
     #navbar .tab-btn.active::after{
       content:""; position:absolute; left:-0.55rem; top:50%; transform:translateY(-50%);
       width:3px; height:60%; background:var(--frost); border-radius:0 3px 3px 0;
@@ -432,7 +426,7 @@
     animation:rankSlideIn .35s var(--ease-soft) backwards;
   }
   .feed-item.feed-item-new{ animation:feedPop .4s var(--ease-soft), rankFlashUp 1.4s ease-out; border-color:var(--frost); }
-  .feed-icon{ font-size:1.15rem; flex-shrink:0; width:1.6rem; text-align:center; }
+  .feed-icon{ flex-shrink:0; width:1.6rem; height:1.6rem; display:grid; place-items:center; }
   .feed-avatar{ width:30px; height:30px; }
   .feed-main{ flex:1; min-width:0; }
   .feed-text{ font-size:0.78rem; color:var(--ink); line-height:1.5; }
@@ -534,7 +528,7 @@
   .bn-btn.active{ color:var(--frost); background:rgba(232,145,127,0.1) !important; }
   .bn-btn.staff{ color:var(--hazard); }
   .bn-btn.staff.active{ color:var(--hazard); background:rgba(224,181,99,0.12) !important; }
-  .bn-icon{ font-size:1.2rem; line-height:1; }
+  .bn-btn .nexo-icon{ width:21px; height:21px; }
 
   @media (max-width:760px){
     #topbar{ padding:0.7rem 0.9rem; flex-wrap:wrap; row-gap:0.5rem; }
