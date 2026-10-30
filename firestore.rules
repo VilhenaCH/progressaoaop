@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ⚠️ Cole aqui os MESMOS UIDs que você colocou em ADMIN_UIDS no index.html.
+    // As regras não conseguem ler o array do JavaScript do site — precisam
+    // da própria lista, senão qualquer pessoa logada poderia chamar as
+    // funções de staff diretamente pelo console do navegador.
+    function isAdmin() {
+      return request.auth != null && request.auth.uid in [
+        // "cole_seu_uid_aqui"
+      ];
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // players/{uid} — documento do jogador (banco de Prestígio unificado)
+    match /players/{uid} {
+      allow read: if isSignedIn();
+      // o próprio jogador só pode criar/atualizar o registro básico dele
+      // (nome/foto), nunca o ppTotal — isso só muda via staff/transaction.
+      allow create: if isOwner(uid);
+      allow update: if isAdmin() || (
+        isOwner(uid) &&
+        !('ppTotal' in request.resource.data.diff(resource.data).affectedKeys())
+      );
+      allow delete: if false;
+
+      // players/{uid}/characters/{charId} — personagens do jogador
+      match /characters/{charId} {
+        allow read: if isSignedIn();
+        allow create: if isOwner(uid);
+        // o próprio jogador pode editar campos "de cadastro" (nome, ativo),
+        // mas não pode mexer em PE, patente, sessões ou status de temporada.
+        allow update: if isAdmin() || (
+          isOwner(uid) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'isActive'])
+        );
+        allow delete: if isAdmin();
+      }
+    }
+
+    // redemptions/{id} — solicitações de resgate
+    match /redemptions/{id} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(request.resource.data.uid);
+      // jogador só pode cancelar (mudar status pendente -> cancelado) a própria solicitação;
+      // qualquer outra mudança (aprovar/negar/reviewedBy) é exclusiva da staff.
+      allow update: if isAdmin() || (
+        isOwner(resource.data.uid) &&
+        resource.data.status == 'pendente' &&
+        request.resource.data.status == 'cancelado' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+      );
+      allow delete: if false;
+    }
+
+    // grants/{id} — histórico de concessões manuais da staff (auditoria)
+    match /grants/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+  }
+}
