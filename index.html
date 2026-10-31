@@ -22,27 +22,14 @@
 <link rel="stylesheet" href="bank.css">
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
-<symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></symbol>
-<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-4 3.2-6 6.5-6s6 2 6.5 6M16 4.5a3.5 3.5 0 010 7M18 14c2 .7 3.3 2.6 3.5 6"/></symbol>
-<symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 01-8 0zM8 6H4v1a4 4 0 004 4M16 6h4v1a4 4 0 01-4 4M12 13v4M8 20h8M10 17h4"/></symbol>
-<symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
-<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol>
-<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
-<symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM4 4l16 16"/></symbol>
-<symbol id="i-down" viewBox="0 0 24 24"><path d="M17 7L7 17M7 9v8h8"/></symbol>
-<symbol id="i-up" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></symbol>
-</defs></svg>
 
 <div id="topbar">
   <div class="brand"><div class="wordmark">nexo</div></div>
   <div id="theme-switcher" role="group" aria-label="Tema">
-    <button class="theme-btn" id="theme-toggle-btn" type="button" title="Trocar tema" aria-haspopup="true" aria-expanded="false">🌙</button>
+    <button class="theme-btn" id="theme-toggle-btn" type="button" title="Trocar tema" aria-haspopup="true" aria-expanded="false"><i class="gi" style="--i:url(icons/moon.png)"></i></button>
     <div id="theme-menu" class="theme-menu" role="menu" aria-label="Opções de tema">
-      <button class="theme-btn theme-option" data-theme="escuro" title="Tema escuro" role="menuitem">🌙</button>
-      <button class="theme-btn theme-option" data-theme="claro" title="Tema claro" role="menuitem">☀️</button>
+      <button class="theme-btn theme-option" data-theme="escuro" title="Tema escuro" role="menuitem"><i class="gi" style="--i:url(icons/moon.png)"></i></button>
+      <button class="theme-btn theme-option" data-theme="claro" title="Tema claro" role="menuitem"><i class="gi" style="--i:url(icons/sun-radiations.png)"></i></button>
     </div>
   </div>
   <div id="account-box"></div>
@@ -58,12 +45,12 @@
 </nav>
 
 <nav id="bottom-nav">
-  <button class="tab-btn bn-btn" data-view="economia"><svg class="ic"><use href="#i-home"/></svg><span>Início</span></button>
-  <button class="tab-btn bn-btn" data-view="resgates"><svg class="ic"><use href="#i-receipt"/></svg><span>Extrato</span></button>
-  <button class="tab-btn bn-btn" data-view="personagens"><svg class="ic"><use href="#i-users"/></svg><span>Fichas</span></button>
-  <button class="tab-btn bn-btn" data-view="ranking"><svg class="ic"><use href="#i-trophy"/></svg><span>Ranking</span></button>
-  <button class="tab-btn bn-btn" data-view="feed"><svg class="ic"><use href="#i-pulse"/></svg><span>Mural</span></button>
-  <button class="tab-btn bn-btn staff" data-view="staff" id="staff-tab-mobile" style="display:none;"><svg class="ic"><use href="#i-shield"/></svg><span>Staff</span></button>
+  <button class="tab-btn bn-btn" data-view="economia"><i class="gi" style="--i:url(icons/bank.png)"></i><span>Início</span></button>
+  <button class="tab-btn bn-btn" data-view="resgates"><i class="gi" style="--i:url(icons/scroll-unfurled.png)"></i><span>Extrato</span></button>
+  <button class="tab-btn bn-btn" data-view="personagens"><i class="gi" style="--i:url(icons/id-card.png)"></i><span>Fichas</span></button>
+  <button class="tab-btn bn-btn" data-view="ranking"><i class="gi" style="--i:url(icons/podium.png)"></i><span>Ranking</span></button>
+  <button class="tab-btn bn-btn" data-view="feed"><i class="gi" style="--i:url(icons/tabletop-players.png)"></i><span>Mural</span></button>
+  <button class="tab-btn bn-btn staff" data-view="staff" id="staff-tab-mobile" style="display:none;"><i class="gi" style="--i:url(icons/police-badge.png)"></i><span>Staff</span></button>
 </nav>
 
 <div id="stage">
@@ -176,11 +163,11 @@
       <label>Nome</label>
       <input type="text" id="badge-name-input" placeholder="Ex: Sobrevivente, Veterano de Mesa, Herói de Barcelos...">
       <label>Emoji</label>
-      <input type="text" id="badge-emoji-input" placeholder="🏆" maxlength="4">
+      <input type="text" id="badge-emoji-input" placeholder="Emoji (opcional)" maxlength="4">
       <label>Imagem/GIF personalizado (opcional)</label>
       <div class="field-hint">Envie uma imagem ou GIF do seu dispositivo pra usar como ícone da badge no lugar do emoji (GIFs até ~350KB pra manter a animação).</div>
       <div style="display:flex; align-items:center; gap:0.6rem; margin-top:0.5rem;">
-        <span class="badge-chip" id="badge-icon-preview" style="width:2.4rem; height:2.4rem; font-size:1.1rem;">🖼️</span>
+        <span class="badge-chip" id="badge-icon-preview" style="width:2.4rem; height:2.4rem; font-size:1.1rem;"><i class="gi" style="--i:url(icons/photo-camera.png)"></i></span>
         <input type="file" id="badge-icon-file-input" accept="image/*" style="display:none;">
         <button type="button" class="btn small" id="badge-icon-pick-btn">Escolher arquivo</button>
         <button type="button" class="btn small danger" id="badge-icon-remove-btn" style="display:none;">Remover</button>
@@ -221,7 +208,7 @@
       <div class="eyebrow">Novo registro</div>
       <h2>Cadastrar personagem</h2>
     </div>
-    <button class="drawer-close" data-close="char-drawer">✕</button>
+    <button class="drawer-close" data-close="char-drawer"><i class="gi" style="--i:url(icons/cancel.png)"></i></button>
   </div>
   <div class="drawer-body">
     <label>Nome do personagem</label>
@@ -240,7 +227,7 @@
       <div class="eyebrow">Ficha de progressão</div>
       <h2 id="detail-name">—</h2>
     </div>
-    <button class="drawer-close" data-close="detail-drawer">✕</button>
+    <button class="drawer-close" data-close="detail-drawer"><i class="gi" style="--i:url(icons/cancel.png)"></i></button>
   </div>
   <div class="drawer-body" id="detail-body"></div>
 </div>
@@ -253,7 +240,7 @@
       <div class="eyebrow">Solicitação</div>
       <h2>Nova solicitação</h2>
     </div>
-    <button class="drawer-close" data-close="req-drawer">✕</button>
+    <button class="drawer-close" data-close="req-drawer"><i class="gi" style="--i:url(icons/cancel.png)"></i></button>
   </div>
   <div class="drawer-body">
     <label>Tipo de solicitação</label>
@@ -291,7 +278,7 @@
       <div class="eyebrow">Ajustar imagem</div>
       <h2 id="crop-title">Posicionar foto</h2>
     </div>
-    <button class="drawer-close" data-close="crop-drawer">✕</button>
+    <button class="drawer-close" data-close="crop-drawer"><i class="gi" style="--i:url(icons/cancel.png)"></i></button>
   </div>
   <div class="drawer-body">
     <div class="field-hint" style="margin-bottom:0.7rem;">Arraste a imagem pra posicionar e use o controle abaixo pra dar zoom.</div>
@@ -315,7 +302,7 @@
       <div class="eyebrow">Ficha de jogador</div>
       <h2>Sua apresentação</h2>
     </div>
-    <button class="drawer-close" data-close="profile-drawer">✕</button>
+    <button class="drawer-close" data-close="profile-drawer"><i class="gi" style="--i:url(icons/cancel.png)"></i></button>
   </div>
   <div class="drawer-body">
     <div class="char-avatar-lg" id="my-avatar-preview" style="margin:0 auto 0.8rem;"></div>
@@ -356,7 +343,7 @@
       <div class="eyebrow">Perfil de personagem</div>
       <h2 id="char-profile-name">—</h2>
     </div>
-    <button class="drawer-close" data-close="char-profile-drawer">✕</button>
+    <button class="drawer-close" data-close="char-profile-drawer"><i class="gi" style="--i:url(icons/cancel.png)"></i></button>
   </div>
   <div class="drawer-body" id="char-profile-body"></div>
 </div>
@@ -369,7 +356,7 @@
       <div class="eyebrow">Perfil de agente</div>
       <h2 id="player-view-name">—</h2>
     </div>
-    <button class="drawer-close" data-close="player-view-drawer">✕</button>
+    <button class="drawer-close" data-close="player-view-drawer"><i class="gi" style="--i:url(icons/cancel.png)"></i></button>
   </div>
   <div class="drawer-body" id="player-view-body"></div>
 </div>
@@ -382,7 +369,7 @@
       <div class="eyebrow">Badge</div>
       <h2 id="badge-inspect-name">—</h2>
     </div>
-    <button class="drawer-close" data-close="badge-inspect-drawer">✕</button>
+    <button class="drawer-close" data-close="badge-inspect-drawer"><i class="gi" style="--i:url(icons/cancel.png)"></i></button>
   </div>
   <div class="drawer-body" id="badge-inspect-body"></div>
 </div>
@@ -390,5 +377,6 @@
 <div id="toast"></div>
 
 <script type="module" src="app.js"></script>
+<script type="module" src="economia.js"></script>
 </body>
 </html>

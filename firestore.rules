@@ -1,73 +1,111 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ⚠️ Cole aqui os MESMOS UIDs que você colocou em ADMIN_UIDS no index.html.
-    // As regras não conseguem ler o array do JavaScript do site — precisam
-    // da própria lista, senão qualquer pessoa logada poderia chamar as
-    // funções de staff diretamente pelo console do navegador.
+    // Admins fixos: os MESMOS UIDs de ADMIN_UIDS no app.js. Quem recebe "isStaff" pelo painel também vale.
     function isAdmin() {
-      return request.auth != null && request.auth.uid in [
-        // "cole_seu_uid_aqui"
-      ];
+      return request.auth != null && (request.auth.uid in [
+        "a7iPwYGIdgbvJTGtqrrV8LMn6ea2",
+        "HutienalLha4HDnGDNlDa2XBXD23"
+      ] || get(/databases/$(database)/documents/players/$(request.auth.uid)).data.get('isStaff', false) == true);
+    }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+
+    // Dia de Brasília (UTC-3), mesmo formato do app: 2026-10-30 -> "2026-10-30" sem zeros à esquerda
+    function dayStr(t) { return string(t.year()) + '-' + string(t.month()) + '-' + string(t.day()); }
+    function today() { return dayStr(request.time - duration.value(3, 'h')); }
+    function yest() { return dayStr(request.time - duration.value(27, 'h')); }
+
+    // resgate diário: só mexe em ppTotal + daily, uma vez por dia, 40 PP (100 PP a cada 7º dia seguido)
+    function dailyOk() {
+      let nw = request.resource.data; let old = resource.data;
+      let od = old.get('daily', {'lastDay': '', 'streak': 0});
+      let streak = od.lastDay == yest() ? od.streak + 1 : 1;
+      return nw.diff(old).affectedKeys().hasOnly(['ppTotal', 'daily'])
+        && nw.daily.lastDay == today() && od.lastDay != today() && nw.daily.streak == streak
+        && nw.ppTotal - old.ppTotal == (streak % 7 == 0 ? 100 : 40);
+    }
+    // dados 6d6: pagar 2 PP exige pote +2 no mesmo commit; levar o pote exige zerá-lo
+    function diceOk() {
+      let g = /databases/$(database)/documents/games/dice6;
+      let oldPot = exists(g) ? get(g).data.pot : 0;
+      let d = request.resource.data.ppTotal - resource.data.ppTotal;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ppTotal']) && existsAfter(g)
+        && ((d == -2 && getAfter(g).data.pot == oldPot + 2) || (d == oldPot && getAfter(g).data.pot == 0));
     }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    // players/{uid} — documento do jogador (banco de Prestígio unificado)
     match /players/{uid} {
       allow read: if isSignedIn();
-      // o próprio jogador só pode criar/atualizar o registro básico dele
-      // (nome/foto), nunca o ppTotal — isso só muda via staff/transaction.
-      allow create: if isOwner(uid);
-      allow update: if isAdmin() || (
-        isOwner(uid) &&
-        !('ppTotal' in request.resource.data.diff(resource.data).affectedKeys())
-      );
+      allow create: if isOwner(uid) && request.resource.data.get('ppTotal', 0) == 0 && !('isStaff' in request.resource.data);
+      allow update: if isAdmin()
+        || (isOwner(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ppTotal', 'isStaff', 'daily']))
+        || (isOwner(uid) && dailyOk())
+        || (isOwner(uid) && diceOk());
       allow delete: if false;
 
-      // players/{uid}/characters/{charId} — personagens do jogador
       match /characters/{charId} {
         allow read: if isSignedIn();
         allow create: if isOwner(uid);
-        // o próprio jogador pode editar campos "de cadastro" (nome, ativo),
-        // mas não pode mexer em PE, patente, sessões ou status de temporada.
-        allow update: if isAdmin() || (
-          isOwner(uid) &&
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['name', 'isActive'])
-        );
+        allow update: if isAdmin() || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'isActive']));
         allow delete: if isAdmin();
       }
     }
 
-    // redemptions/{id} — solicitações de resgate
     match /redemptions/{id} {
       allow read: if isSignedIn();
       allow create: if isOwner(request.resource.data.uid);
-      // jogador só pode cancelar (mudar status pendente -> cancelado) a própria solicitação;
-      // qualquer outra mudança (aprovar/negar/reviewedBy) é exclusiva da staff.
-      allow update: if isAdmin() || (
-        isOwner(resource.data.uid) &&
-        resource.data.status == 'pendente' &&
-        request.resource.data.status == 'cancelado' &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
-      );
+      allow update: if isAdmin() || (isOwner(resource.data.uid) && resource.data.status == 'pendente'
+        && request.resource.data.status == 'cancelado' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
       allow delete: if false;
     }
-
-    // grants/{id} — histórico de concessões manuais da staff (auditoria)
-    match /grants/{id} {
-      allow read: if isAdmin();
-      allow create: if isAdmin();
+    match /grants/{id} { allow read: if isAdmin(); allow create: if isAdmin(); allow update, delete: if false; }
+    match /badges/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /feed/{id} {
+      allow read, create: if isSignedIn();
       allow update, delete: if false;
+      match /reactions/{ruid} { allow read: if isSignedIn(); allow create, update, delete: if isOwner(ruid); }
+    }
+
+    // ---- economia extra ----
+    match /currencies/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+
+    function tr() { return getAfter(/databases/$(database)/documents/transfers/$(request.resource.data.ref)).data; }
+    function walletOk(uid, cid) {
+      let nw = request.resource.data.amount;
+      let old = resource == null ? 0 : resource.data.amount;
+      return nw is int && nw >= 0 && request.resource.data.keys().hasOnly(['amount', 'ref']) && (
+        (nw < old && request.auth.uid == uid && tr().from == uid && tr().cid == cid && tr().amount == old - nw)
+        || (nw > old && tr().to == uid && tr().cid == cid && tr().from == request.auth.uid && tr().amount == nw - old));
+    }
+    match /wallets/{uid}/coins/{cid} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && walletOk(uid, cid));
+    }
+    match /transfers/{id} {
+      allow read: if isAdmin() || (isSignedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid || resource.data.kind == 'market'));
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.from == request.auth.uid
+        && request.resource.data.amount is int && request.resource.data.amount > 0 && request.resource.data.kind in ['player', 'market']);
+      allow update, delete: if false;
+    }
+    match /markets/{mid} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && request.resource.data.balance > resource.data.balance
+        && tr().to == 'm:' + mid && tr().from == request.auth.uid && tr().cid == resource.data.cid
+        && tr().amount == request.resource.data.balance - resource.data.balance);
+      allow delete: if isAdmin();
+    }
+    match /tableRequests/{id} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || (isOwner(request.resource.data.masterUid) && request.resource.data.status == 'pendente');
+      allow update: if isAdmin() || (isOwner(resource.data.masterUid) && resource.data.status == 'pendente'
+        && request.resource.data.status == 'cancelado' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
+      allow delete: if false;
+    }
+    match /games/{g} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && request.resource.data.pot is int && (request.resource.data.pot == 0
+        || (resource != null && request.resource.data.pot == resource.data.pot + 2) || (resource == null && request.resource.data.pot == 2)));
     }
   }
 }

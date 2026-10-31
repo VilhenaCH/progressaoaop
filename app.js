@@ -298,7 +298,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       preview.innerHTML = `<img src="${dataUrl}" alt="preview">`;
       removeBtn.style.display = 'inline-block';
     } else {
-      preview.innerHTML = '🖼️';
+      preview.innerHTML = gi('photo-camera');
       removeBtn.style.display = 'none';
     }
   }
@@ -325,7 +325,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     const colorStyle = badge.color ? ` style="border-color:${escapeHtml(badge.color)}; box-shadow:0 0 7px ${escapeHtml(badge.color)}66;"` : '';
     const inner = badge.iconUrl
       ? `<img src="${escapeHtml(badge.iconUrl)}" alt="${title}" loading="lazy">`
-      : escapeHtml(badge.emoji || '⭐');
+      : (badge.emoji ? escapeHtml(badge.emoji) : gi('star-medal'));
     const millis = awardedAtToMillis(awardedAt);
     const dataAttrs = ` data-badge-id="${escapeHtml(badge.id || '')}"${millis ? ` data-awarded-at="${millis}"` : ''}`;
     return `<span class="badge-chip inspectable${animClass}${extraClass}" title="${title}"${colorStyle}${dataAttrs}>${inner}</span>`;
@@ -351,7 +351,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     const dateLine = awardedAtMillis ? formatBadgeAwardedDate(awardedAtMillis) : null;
     const iconHTML = badge.iconUrl
       ? `<img src="${escapeHtml(badge.iconUrl)}" alt="${escapeHtml(badge.name || '')}">`
-      : escapeHtml(badge.emoji || '⭐');
+      : (badge.emoji ? escapeHtml(badge.emoji) : gi('star-medal'));
     const colorStyle = badge.color ? ` border-color:${escapeHtml(badge.color)}; box-shadow:0 0 10px ${escapeHtml(badge.color)}66;` : '';
     body.innerHTML = `
       <div style="display:flex; justify-content:center; margin-bottom:1rem;">
@@ -377,8 +377,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   const THEME_KEY = 'nexo-theme';
   const THEME_ORDER = ['escuro', 'claro', 'rosa', 'rosa-escuro'];
   const THEME_META = {
-    'escuro': { icon: '🌙', label: 'Tema escuro — toque para trocar' },
-    'claro': { icon: '☀️', label: 'Tema claro — toque para trocar' },
+    'escuro': { icon: gi('moon'), label: 'Tema escuro — toque para trocar' },
+    'claro': { icon: gi('sun-radiations'), label: 'Tema claro — toque para trocar' },
   };
   function applyTheme(theme){
     if(!THEME_META[theme]) theme = 'escuro';
@@ -386,7 +386,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     const btn = document.getElementById('theme-toggle-btn');
     if(btn){
       const m = THEME_META[theme];
-      btn.textContent = m.icon;
+      btn.innerHTML = m.icon;
       btn.title = m.label;
       btn.setAttribute('aria-label', m.label);
     }
@@ -579,7 +579,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       item.style.animationDelay = `${Math.min(idx * 45, 500)}ms`;
       const avatarStyle = p.photoURL ? `style="background-image:url('${escapeHtml(p.photoURL)}')"` : '';
       const avatarInitial = p.photoURL ? '' : escapeHtml((p.displayName || p.email || '?').slice(0,1).toUpperCase());
-      const crown = rank === 1 ? '<span class="rank-crown">👑</span>' : '';
+      const crown = rank === 1 ? `<span class="rank-crown">${gi('crown')}</span>` : '';
       const displayIds = (p.displayBadges || []).filter(id => p.badges && p.badges[id]);
       const badgesHTML = displayIds.length
         ? `<span class="badge-row inline">${displayIds.map(id => badgeChipHTML(getBadge(id), ' sm', p.badges && p.badges[id] && p.badges[id].awardedAt)).join('')}</span>`
@@ -623,7 +623,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     });
   }
 
-  const FEED_ICONS = { grant:'✨', badge:'🏅', patente:'⭐', resgate:'🎁' };
+  const FEED_ICONS = { grant:gi('sparkles'), badge:gi('ribbon-medal'), patente:gi('rank-3'), resgate:gi('coins-pile') };
 
   function feedItemText(ev){
     const who = escapeHtml(ev.playerName || 'Um agente');
@@ -666,13 +666,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       item.className = 'feed-item' + (isNew && lastFeedIds.size ? ' feed-item-new' : '');
       item.style.animationDelay = `${Math.min(idx * 45, 400)}ms`;
       item.innerHTML = `
-        <div class="feed-icon">${FEED_ICONS[ev.type] || '📌'}</div>
+        <div class="feed-icon">${FEED_ICONS[ev.type] || gi('scroll-unfurled')}</div>
         <div class="rank-avatar feed-avatar" ${avatarStyle}>${avatarInitial}</div>
         <div class="feed-main">
           <div class="feed-text">${feedItemText(ev)}</div>
           <div class="feed-time">${feedRelativeTime(ev.createdAt)}</div>
         </div>
-        <button class="feed-react-btn" data-feed-id="${ev.id}" title="Comemorar">🎉 <span class="count">0</span></button>
+        <button class="feed-react-btn" data-feed-id="${ev.id}" title="Comemorar">${gi('party-popper')} <span class="count">0</span></button>
       `;
       el.appendChild(item);
       wireFeedReaction(item.querySelector('.feed-react-btn'), ev.id);
@@ -735,7 +735,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       <div class="char-avatar-lg profile-avatar-overlap" ${avatarStyle}>${avatarInitial}${onlineNow ? '<span class="presence-dot lg" title="Ativo agora"></span>' : ''}</div>
       <div class="presence-label">${onlineNow ? 'Ativo agora' : (player.lastActive ? 'Visto ' + feedRelativeTime(player.lastActive) : '')}</div>
       <div class="stat-grid"><div class="stat-box"><div class="label">Prestígio (PP)</div><div class="value">${player.ppTotal || 0}</div></div></div>
-      ${birthdayLine ? `<div class="field-hint" style="text-align:center; margin-top:0.7rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
+      ${birthdayLine ? `<div class="field-hint" style="text-align:center; margin-top:0.7rem;">${gi('cake-slice')} ${escapeHtml(birthdayLine)}</div>` : ''}
       <div class="section-label" style="margin-top:1.1rem;">Badges</div>
       ${badgesSectionHTML}
       <div class="section-label" style="margin-top:1.1rem;">Apresentação</div>
@@ -865,7 +865,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       ? `<div class="section-label" style="margin-top:0.8rem;">Suas badges</div><div class="badge-row" style="margin-top:0.4rem;">${ownedIds.map(id => badgeChipHTML(getBadge(id), '', myPlayerDoc.badges[id] && myPlayerDoc.badges[id].awardedAt)).join('')}</div>`
       : '';
     box.innerHTML =
-      (birthdayLine ? `<div class="field-hint" style="margin-bottom:0.5rem;">🎂 ${escapeHtml(birthdayLine)}</div>` : '') +
+      (birthdayLine ? `<div class="field-hint" style="margin-bottom:0.5rem;">${gi('cake-slice')} ${escapeHtml(birthdayLine)}</div>` : '') +
       (bio
         ? `<div class="bio-text">${escapeHtml(bio)}</div>`
         : `<div class="bio-text bio-empty">Você ainda não escreveu sua apresentação. Clique em "Editar apresentação" para contar um pouco sobre você.</div>`) +
@@ -910,7 +910,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         img.src = badge.iconUrl; img.alt = badge.name || '';
         chip.appendChild(img);
       } else {
-        chip.textContent = badge.emoji || '⭐';
+        if(badge.emoji) chip.textContent = badge.emoji; else chip.innerHTML = gi('star-medal');
       }
       chip.addEventListener('click', () => {
         const idx = selectedDisplayBadges.indexOf(id);
@@ -1018,7 +1018,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         if(added.length){
           const b = getBadge(added[0]);
           fireConfetti();
-          toast(`Nova badge: ${b ? b.name : 'conquista'}! 🎉`);
+          toast(`Nova badge: ${b ? b.name : 'conquista'}!`);
         }
       }
       prevMyBadgeIds = newIds;
@@ -1089,7 +1089,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
         const prev = prevCharPatentes.get(c.id);
         if(prev !== undefined && prev !== (c.patente || 'recruta')){
           fireConfetti();
-          toast(`${c.name} subiu de patente! 🎖️`);
+          toast(`${c.name} subiu de patente!`);
         }
         prevCharPatentes.set(c.id, c.patente || 'recruta');
       });
@@ -1263,7 +1263,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   }
 
   // ================= ECONOMIA =================
-  const IC = n => `<svg class="ic" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+  function gi(n, cls){ return `<i class="gi${cls ? ' ' + cls : ''}" style="--i:url(icons/${n}.png)"></i>`; }
+  const ICON_MAP = { plus:'two-coins', receipt:'scroll-unfurled', users:'id-card', trophy:'podium', eye:'all-seeing-eye', 'eye-off':'sight-disabled', down:'coins-pile', up:'shopping-bag' };
+  const IC = n => gi(ICON_MAP[n] || n);
   const STATUS_LABEL = { pendente:'Pendente', aprovado:'Aprovado', negado:'Negado', cancelado:'Cancelado' };
   const CREDIT_TYPES = ['sessao_mestre','sessao_jogador','personalizado'];
   const fmt = n => (n || 0).toLocaleString('pt-BR');
@@ -1798,7 +1800,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       <div class="field-hint">Toque em uma badge pra conceder ou remover. As badges concedidas ficam disponíveis pro jogador escolher e exibir no ranking.</div>
       <div class="badge-row" id="staff-player-badges" style="margin-top:0.6rem;"></div>
       <div class="section-label" style="margin-top:1rem;">Apresentação do jogador</div>
-      ${birthdayLine ? `<div class="field-hint">🎂 ${escapeHtml(birthdayLine)}</div>` : ''}
+      ${birthdayLine ? `<div class="field-hint">${gi('cake-slice')} ${escapeHtml(birthdayLine)}</div>` : ''}
       <div class="profile-card">${bio ? `<div class="bio-text">${escapeHtml(bio)}</div>` : '<div class="bio-text bio-empty">Este jogador ainda não escreveu uma apresentação.</div>'}</div>
     `;
     renderStaffPlayerBadges(player);
@@ -1887,7 +1889,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
       chip.className = 'badge-chip selectable owned-toggle' + (owned ? ' awarded' : '') + animClass;
       chip.title = b.name || '';
       if(b.color){ chip.style.borderColor = b.color; }
-      chip.textContent = b.emoji || '⭐';
+      if(b.emoji) chip.textContent = b.emoji; else chip.innerHTML = gi('star-medal');
       chip.addEventListener('click', async () => {
         try{
           if(player.badges && player.badges[b.id]){
@@ -2010,7 +2012,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 
   document.getElementById('badge-save-btn').addEventListener('click', async () => {
     const name = document.getElementById('badge-name-input').value.trim();
-    const emoji = document.getElementById('badge-emoji-input').value.trim() || '⭐';
+    const emoji = document.getElementById('badge-emoji-input').value.trim();
     const iconUrl = currentBadgeIconData;
     const anim = document.getElementById('badge-anim-select').value;
     const color = currentBadgeHasColor ? document.getElementById('badge-color-input').value.trim() : '';
@@ -2145,3 +2147,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
   function escapeHtml(str){
     return String(str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
+
+  // ponte para economia.js
+  window.NEXO = { db, get user(){ return currentUser; }, staff: () => !!currentUser && (isAdmin(currentUser.uid) || (myPlayerDoc && myPlayerDoc.isStaff === true)), toast, esc: escapeHtml, gi, go: switchView, openDrawer, closeDrawer, confetti: fireConfetti, feed: publishFeedEvent };
