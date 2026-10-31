@@ -2137,6 +2137,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
     document.getElementById(id).classList.remove('open');
     document.getElementById(id + '-backdrop').classList.remove('open');
   }
+  // altura útil real da tela (barras do navegador mobile mudam o "vh"); usada pelas gavetas como reserva do dvh
+  const setVh = () => document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+  setVh(); window.addEventListener('resize', setVh); window.addEventListener('orientationchange', setVh);
+  // Esc fecha a gaveta aberta mais recente
+  document.addEventListener('keydown', e => { if(e.key !== 'Escape') return; const open = [...document.querySelectorAll('.drawer.open')].pop(); if(open) closeDrawer(open.id); });
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeDrawer(btn.dataset.close));
   });

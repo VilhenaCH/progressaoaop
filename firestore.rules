@@ -34,13 +34,40 @@ service cloud.firestore {
         && ((d == -2 && getAfter(g).data.pot == oldPot + 2) || (d == oldPot && getAfter(g).data.pot == 0));
     }
 
+    // PP entre jogadores / conversão PP -> moeda: o documento transfers/{ppRef} descreve a operação e as duas pontas conferem uma à outra
+    function ppDoc(u) { return /databases/$(database)/documents/players/$(u); }
+    function ppT() { return getAfter(/databases/$(database)/documents/transfers/$(request.resource.data.ppRef)).data; }
+    function ppFresh() { return request.resource.data.get('ppRef', '') != resource.data.get('ppRef', ''); }
+    function ppKeys() { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ppTotal', 'ppRef']); }
+    function ppDelta() { return request.resource.data.ppTotal - resource.data.ppTotal; }
+    function ppSendOk(uid) { // dono envia PP a outro jogador (e o outro recebe exatamente isso no mesmo commit)
+      let t = ppT();
+      return ppKeys() && ppFresh() && request.resource.data.ppTotal >= 0 && t.kind == 'pp' && t.from == uid && t.to != uid
+        && t.amount is int && t.amount > 0 && ppDelta() == -t.amount
+        && getAfter(ppDoc(t.to)).data.ppTotal - get(ppDoc(t.to)).data.ppTotal == t.amount;
+    }
+    function ppRecvOk(uid) { // quem recebe: só sobe, no valor da transferência, e o remetente precisa ter pago o mesmo valor
+      let t = ppT();
+      return ppKeys() && ppFresh() && t.kind == 'pp' && t.to == uid && t.from == request.auth.uid && t.from != uid
+        && t.amount is int && t.amount > 0 && ppDelta() == t.amount
+        && get(ppDoc(t.from)).data.ppTotal - getAfter(ppDoc(t.from)).data.ppTotal == t.amount;
+    }
+    function ppConvOk(uid) { // dono troca PP por moeda: o saldo da moeda é conferido na regra da carteira
+      let t = ppT();
+      return ppKeys() && ppFresh() && request.resource.data.ppTotal >= 0 && t.kind == 'convert' && t.from == uid && t.to == uid
+        && t.pp is int && t.pp > 0 && ppDelta() == -t.pp;
+    }
+
     match /players/{uid} {
       allow read: if isSignedIn();
       allow create: if isOwner(uid) && request.resource.data.get('ppTotal', 0) == 0 && !('isStaff' in request.resource.data);
       allow update: if isAdmin()
-        || (isOwner(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ppTotal', 'isStaff', 'daily']))
+        || (isOwner(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ppTotal', 'ppRef', 'isStaff', 'daily']))
         || (isOwner(uid) && dailyOk())
-        || (isOwner(uid) && diceOk());
+        || (isOwner(uid) && diceOk())
+        || (isOwner(uid) && ppSendOk(uid))
+        || (isOwner(uid) && ppConvOk(uid))
+        || (isSignedIn() && ppRecvOk(uid));
       allow delete: if false;
 
       match /characters/{charId} {
@@ -70,12 +97,20 @@ service cloud.firestore {
     match /currencies/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
 
     function tr() { return getAfter(/databases/$(database)/documents/transfers/$(request.resource.data.ref)).data; }
+    function wDoc(u, cid) { return /databases/$(database)/documents/wallets/$(u)/coins/$(cid); }
     function walletOk(uid, cid) {
       let nw = request.resource.data.amount;
       let old = resource == null ? 0 : resource.data.amount;
+      let t = tr();
       return nw is int && nw >= 0 && request.resource.data.keys().hasOnly(['amount', 'ref']) && (
-        (nw < old && request.auth.uid == uid && tr().from == uid && tr().cid == cid && tr().amount == old - nw)
-        || (nw > old && tr().to == uid && tr().cid == cid && tr().from == request.auth.uid && tr().amount == nw - old));
+        (nw < old && request.auth.uid == uid && t.kind in ['player', 'market'] && t.from == uid && t.cid == cid && t.amount == old - nw)
+        // recebe de outro jogador: o remetente precisa ter perdido exatamente esse valor no mesmo commit
+        || (nw > old && t.kind == 'player' && t.to == uid && t.from != uid && t.cid == cid && t.from == request.auth.uid && t.amount == nw - old
+            && get(wDoc(t.from, cid)).data.amount - getAfter(wDoc(t.from, cid)).data.amount == t.amount)
+        // conversão PP -> moeda: valor = piso(PP * taxa da moeda) e o PP precisa ter saído do próprio jogador
+        || (nw > old && request.auth.uid == uid && t.kind == 'convert' && t.from == uid && t.to == uid && t.cid == cid && t.amount == nw - old
+            && t.pp is int && t.pp > 0 && t.amount == math.floor(t.pp * get(/databases/$(database)/documents/currencies/$(cid)).data.get('perPP', 1))
+            && get(ppDoc(uid)).data.ppTotal - getAfter(ppDoc(uid)).data.ppTotal == t.pp));
     }
     match /wallets/{uid}/coins/{cid} {
       allow read: if isSignedIn();
@@ -84,7 +119,7 @@ service cloud.firestore {
     match /transfers/{id} {
       allow read: if isAdmin() || (isSignedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid || resource.data.kind == 'market'));
       allow create: if isAdmin() || (isSignedIn() && request.resource.data.from == request.auth.uid
-        && request.resource.data.amount is int && request.resource.data.amount > 0 && request.resource.data.kind in ['player', 'market']);
+        && request.resource.data.amount is int && request.resource.data.amount > 0 && request.resource.data.kind in ['player', 'market', 'pp', 'convert']);
       allow update, delete: if false;
     }
     match /markets/{mid} {

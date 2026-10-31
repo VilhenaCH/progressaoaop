@@ -47,9 +47,9 @@ h1,h2,h3,.display,.panel h2,.char-card h3,.stat-box .value,.drawer .drawer-heade
 .bal-chips b{font-family:'Sora',sans-serif;margin-left:.25rem}
 .qa{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin:1.2rem 0}
 .qa button{background:none;border:0;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:.5rem;font:600 .74rem 'Manrope',sans-serif;cursor:pointer}
-.qa i{width:58px;height:58px;border-radius:50%;background:var(--bg-1);border:1px solid var(--line);display:grid;place-items:center;color:var(--frost);transition:transform .15s}
-.qa button:first-child i{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff}
-.qa button:active i{transform:scale(.92)}
+.qa button>i{width:58px;height:58px;border-radius:50%;background:var(--bg-1);border:1px solid var(--line);display:grid;place-items:center;color:var(--frost);transition:transform .15s}
+.qa button:first-child>i{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff}
+.qa button:active>i{transform:scale(.92)}
 .sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
 .sec-head h2{font-size:1rem;margin:0}
 .link{background:none;border:0;color:var(--frost);font:700 .8rem 'Manrope',sans-serif;cursor:pointer}
@@ -130,9 +130,9 @@ html[data-theme="claro"] body{background:radial-gradient(900px 420px at 85% -8%,
 button,input,select,textarea{font-family:inherit}
 .bal-val,.tx-v,.rank-pp,.req-amounts,.stat-box .value{font-variant-numeric:tabular-nums}
 .bal-val{font-size:clamp(2.4rem,10vw,3.5rem)}.bn-btn{font-size:.7rem}
-.char-card,.rank-item,.qa i{transition:transform .2s,border-color .2s}
-@media(hover:hover){.char-card:hover,.rank-item:hover{transform:translateY(-2px);border-color:var(--acc)}.qa button:hover i{border-color:var(--acc);transform:translateY(-2px)}}
-@media(max-width:360px){html{font-size:15px}.qa i{width:52px;height:52px}}
+.char-card,.rank-item,.qa button>i{transition:transform .2s,border-color .2s}
+@media(hover:hover){.char-card:hover,.rank-item:hover{transform:translateY(-2px);border-color:var(--acc)}.qa button:hover>i{border-color:var(--acc);transform:translateY(-2px)}}
+@media(max-width:360px){html{font-size:15px}.qa button>i{width:52px;height:52px}}
 @media(min-width:600px){.char-grid{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:1024px){
   html{font-size:17px}
@@ -170,3 +170,9 @@ button,input,select,textarea{font-family:inherit}
 .shake .die{animation:shake .14s infinite}@keyframes shake{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg) translateY(-3px)}}
 .plist{max-height:32vh;overflow:auto;display:grid;gap:.3rem}.plist label,label.chk{display:flex;gap:.6rem;align-items:center;margin:.2rem 0;padding:.55rem .7rem;border-radius:12px;background:var(--bg-2);color:var(--ink);font-size:.9rem}
 .plist input{width:auto}
+
+/* gavetas no celular: a altura segue a área REALMENTE visível (barras do navegador), senão o X do topo fica fora da tela */
+.drawer{max-height:calc(var(--vh,1vh) * 92);max-height:92dvh;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.drawer .drawer-header{position:sticky;top:0;z-index:5;background:var(--bg-1)}
+.drawer-close{flex-shrink:0;min-width:var(--tap-min,44px);min-height:var(--tap-min,44px)}
+@media (min-width:761px){.drawer{max-height:calc(var(--vh,1vh) * 88);max-height:88dvh}}
